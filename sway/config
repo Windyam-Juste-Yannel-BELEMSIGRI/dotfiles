@@ -169,4 +169,12 @@ mode "resize" {
     bindsym Escape mode "default"
 }
 
+# Gestes à 4 doigts pour changer de bureau
+#bindgesture swipe:4:left workspace next
+#bindgesture swipe:4:right workspace prev
+
+# Prise en compte dans un environnement multi-écrans
+bindgesture swipe:4:left workspace next_on_output
+bindgesture swipe:4:right workspace prev_on_output
+
 include /etc/sway/config.d/*
