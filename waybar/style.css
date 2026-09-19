@@ -1,0 +1,75 @@
+* {
+    font-family: "JetBrainsMono Nerd Font", sans-serif;
+    font-size: 16px;
+    min-height: 0;
+}
+
+window#waybar {
+    background: rgba(255, 255, 255, 0.2);
+    border-radius: 15px;
+    border: 1px solid rgba(255, 255, 255, 0.5);
+    color: #2e2e2e;
+}
+
+#workspaces {
+    background: rgba(255, 255, 255, 0.25);
+    border-radius: 12px;
+    margin: 6px;
+    padding: 4 6px;
+}
+
+#workspaces button {
+    padding: 4px 12px;
+    color: #8a8a8a;
+    background: transparent;
+    margin: 0px 2px;
+}
+
+#workspaces button.focused {
+    color: #2e2e2e;
+    background: rgba(255, 255, 255, 0.6);
+    border-radius: 10px;
+}
+
+#workspaces button.urgent {
+    color: #a33;
+}
+
+#clock,
+#idle_inhibitor,
+#pulseaudio,
+#backlight,
+#network,
+#bluetooth,
+#battery,
+#tray,
+#custom-lock,
+#custom-power,
+#mpris,
+#mode {
+    background: rgba(255, 255, 255, 0.25);
+    border-radius: 12px;
+    padding: 5px 15px;
+    margin: 10px 3px;
+    color: #2e2e2e;
+}
+
+#battery.warning { color: #b8860b; }
+#battery.critical { color: #a33; background: rgba(255, 200, 200, 0.4); }
+#network.disconnected { color: #a33; }
+
+#custom-power:hover,
+#custom-lock:hover {
+    background: rgba(255, 255, 255, 0.55);
+}
+
+tooltip {
+    background: rgba(255, 255, 255, 0.9);
+    border-radius: 10px;
+    color: #2e2e2e;
+    padding: 6px 10px;
+}
+
+.modules-right {
+     margin-right: 10px;
+}

@@ -1,0 +1,172 @@
+# Variables de base
+set $mod Mod4
+set $left h
+set $down j
+set $up k
+set $right l
+set $term foot
+set $menu wofi --show drun --allow-images
+
+# Écran / fond d'écran
+output * bg ~/Pictures/wallpaper/mahoraga.png fill
+
+# Entrée clavier/souris
+input type:keyboard {
+    xkb_layout us
+}
+input type:touchpad {
+    tap enabled
+    natural_scroll enabled
+}
+
+# APPARENCE : blanc / gris / transparent
+default_border pixel 2
+default_floating_border pixel 2
+titlebar_border_thickness 0
+titlebar_padding 6
+
+gaps inner 10
+gaps outer 4
+
+# Bordures : gris clair, très douces
+#                       border      bg          text     indicator  child_border
+client.focused          #d6d6d6     #ffffff33   #2e2e2e  #c9c9c9    #d6d6d6
+client.focused_inactive #cfcfcf     #ffffff1a   #6e6e6e  #cfcfcf    #cfcfcf
+client.unfocused        #c4c4c4     #ffffff0d   #9e9e9e  #c4c4c4    #c4c4c4
+client.urgent            #e0a0a0    #ffffff33   #7a1f1f  #e0a0a0    #e0a0a0
+
+# Opacité des fenêtres (fonctionne avec Sway ET SwayFX)
+for_window [app_id=".*"] opacity 0.80
+for_window [class=".*"]  opacity 0.80
+# Le terminal un peu plus transparent
+for_window [app_id="foot"] opacity 0.85
+
+# Effets réels (flou, ombres, coins arrondis) : uniquement avec SwayFX
+blur enable
+blur_xray enable
+blur_passes 3
+blur_radius 6
+shadows enable
+shadows_on_csd enable
+corner_radius 12
+default_dim_inactive 0.05
+
+layer_effects "waybar" {
+    blur enable;
+    blur_xray enable;
+    shadows enable;
+    corner_radius 14;
+}
+layer_effects "wofi" {
+    blur enable;
+    corner_radius 12;
+}
+layer_effects "wlogout" {
+    blur enable;
+}
+
+layer_effects "mako" {
+    blur enable;
+    blur_ignore_transparent enable;
+    corner_radius 10;
+}
+
+# DÉMARRAGE AUTOMATIQUE
+exec waybar
+exec mako
+exec nm-applet --indicator
+exec blueman-applet
+
+# Agent polkit
+exec /usr/libexec/polkit-mate-authentication-agent-1
+exec wl-paste --type text --watch cliphist store
+exec wl-paste --type image --watch cliphist store
+
+# Gestion veille / verrouillage / extinction écran
+exec swayidle -w \
+    timeout 300 'swaylock -f -i ~/Pictures/wallpaper.jpg --scaling fill --effect-blur 7x5 --effect-vignette 0.5:0.5' \
+    timeout 600 'swaymsg "output * power off"' \
+        resume 'swaymsg "output * power on"' \
+    before-sleep 'swaylock -f -c 2e2e2ecc'
+
+# RACCOURCIS ESSENTIELS
+bindsym $mod+Return exec $term
+#bindsym $mod+d exec $menu
+bindsym $mod+d exec wofi --show drun
+bindsym $mod+shift+q kill
+bindsym $mod+shift+c reload
+bindsym $mod+shift+r restart
+
+# Verrouillage manuel
+bindsym $mod+Ctrl+l exec swaylock -f -i ~/Pictures/wallpaper.jpg --scaling fill --effect-blur 7x5
+
+# Menu d'alimentation 
+bindsym $mod+shift+e exec wlogout --margin-top 400 --margin-bottom 400 --margin-left 700 --margin-right 700
+
+# Luminosité
+bindsym XF86MonBrightnessUp exec brightnessctl set +5%
+bindsym XF86MonBrightnessDown exec brightnessctl set 5%-
+
+# Volume
+bindsym XF86AudioRaiseVolume exec wpctl set-volume -l 1.0 @DEFAULT_AUDIO_SINK@ 5%+
+bindsym XF86AudioLowerVolume exec wpctl set-volume @DEFAULT_AUDIO_SINK@ 5%-
+bindsym XF86AudioMute exec wpctl set-mute @DEFAULT_AUDIO_SINK@ toggle
+bindsym XF86AudioMicMute exec wpctl set-mute @DEFAULT_AUDIO_SOURCE@ toggle
+
+# Lecture multimédia
+bindsym $mod+shift+v exec foot --app-id=cava-widget cava
+bindsym XF86AudioPlay exec playerctl play-pause
+bindsym XF86AudioNext exec playerctl next
+bindsym XF86AudioPrev exec playerctl previous
+
+# Wi-Fi / réseau : ouvre l'éditeur de connexions de NetworkManager
+bindsym $mod+shift+n exec nm-connection-editor
+
+# Bluetooth : ouvre le gestionnaire graphique
+bindsym $mod+shift+b exec blueman-manager
+
+# Capture d'écran
+bindsym Print exec grim -g "$(slurp)" ~/Pictures/screenshot-$(date +'%Y%m%d-%H%M%S').png
+bindsym $mod+Print exec grim ~/Pictures/screenshot-$(date +'%Y%m%d-%H%M%S').png
+
+### Navigation fenêtres / focus
+# Focus avec les flèches
+bindsym $mod+Left focus left
+bindsym $mod+Down focus down
+bindsym $mod+Up focus up
+bindsym $mod+Right focus right
+
+# Déplacer les fenêtres avec les flèches
+bindsym $mod+Shift+Left move left
+bindsym $mod+Shift+Down move down
+bindsym $mod+Shift+Up move up
+bindsym $mod+Shift+Right move right
+
+### Espaces de travail
+bindsym $mod+1 workspace number 1
+bindsym $mod+2 workspace number 2
+bindsym $mod+3 workspace number 3
+bindsym $mod+4 workspace number 4
+bindsym $mod+5 workspace number 5
+bindsym $mod+Shift+1 move container to workspace number 1
+bindsym $mod+Shift+2 move container to workspace number 2
+bindsym $mod+Shift+3 move container to workspace number 3
+bindsym $mod+Shift+4 move container to workspace number 4
+bindsym $mod+Shift+5 move container to workspace number 5
+
+### Mise en page
+bindsym $mod+f fullscreen
+bindsym $mod+shift+space floating toggle
+bindsym $mod+space focus mode_toggle
+bindsym $mod+r mode "resize"
+
+mode "resize" {
+    bindsym $left  resize shrink width 10px
+    bindsym $down  resize grow height 10px
+    bindsym $up    resize shrink height 10px
+    bindsym $right resize grow width 10px
+    bindsym Return mode "default"
+    bindsym Escape mode "default"
+}
+
+include /etc/sway/config.d/*
