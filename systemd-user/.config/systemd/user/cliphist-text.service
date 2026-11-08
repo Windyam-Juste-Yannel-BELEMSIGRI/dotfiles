@@ -1,0 +1,10 @@
+[Unit]
+Description=Historique presse-papiers (texte)
+PartOf=graphical-session.target
+After=graphical-session.target
+Requisite=graphical-session.target
+
+[Service]
+ExecStart=/usr/bin/wl-paste --type text --watch /usr/bin/cliphist -max-items 500 store
+Restart=on-failure
+RestartSec=2

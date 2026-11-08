@@ -1,0 +1,11 @@
+# Cible de session Sway : démarrée par sway (config.d/30-autostart.conf),
+# arrêtée à la sortie de sway. Tous les démons graphiques y sont rattachés
+# via Wants= (aucun "systemctl enable" nécessaire).
+[Unit]
+Description=Session Sway (cible regroupant les démons graphiques)
+Documentation=man:systemd.special(7)
+BindsTo=graphical-session.target
+Wants=graphical-session-pre.target
+After=graphical-session-pre.target
+Wants=waybar.service mako.service swayidle.service wlsunset.service kanshi.service
+Wants=cliphist-text.service cliphist-image.service polkit-agent.service battery-alert.service

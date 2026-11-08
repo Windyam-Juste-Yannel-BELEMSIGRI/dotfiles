@@ -1,0 +1,10 @@
+[Unit]
+Description=Éclairage nocturne (19h → 7h)
+PartOf=graphical-session.target
+After=graphical-session.target
+Requisite=graphical-session.target
+
+[Service]
+ExecStart=/usr/bin/wlsunset -S 07:00 -s 19:00 -d 1800 -t 4000 -T 6500
+Restart=on-failure
+RestartSec=2

@@ -1,0 +1,10 @@
+[Unit]
+Description=Alertes batterie faible (notifications)
+PartOf=graphical-session.target
+After=graphical-session.target
+Requisite=graphical-session.target
+
+[Service]
+ExecStart=%h/.local/bin/battery-alert --daemon
+Restart=on-failure
+RestartSec=2

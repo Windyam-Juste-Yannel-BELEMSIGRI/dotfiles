@@ -1,0 +1,11 @@
+[Unit]
+Description=Gestion de l'inactivité (verrouillage, extinction écran)
+PartOf=graphical-session.target
+After=graphical-session.target
+Requisite=graphical-session.target
+
+[Service]
+ExecStart=/usr/bin/swayidle -w
+Restart=on-failure
+RestartSec=2
+Type=simple
