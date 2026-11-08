@@ -12,12 +12,13 @@
 # │   * `sway -C` échoue sur la config principale.                        │
 # │ GPU : l'iGPU Intel est le GPU principal (rendu) ; la NVIDIA reste     │
 # │ secondaire pour ses sorties (HDMI/DP). SWAY_IGPU_ONLY=1 dans          │
-# │ ~/.config/sway/env pour n'utiliser QUE l'Intel.                       │
+# │ ~/.config/sway/env pour n'utiliser QUE l'Intel. Repli automatique sur │
+# │ l'Intel seul si Sway plante au démarrage en multi-GPU.               │
 # │ Journal : ~/.local/state/sway/sway.log (5 derniers conservés)         │
 # ╰──────────────────────────────────────────────────────────────────────╯
 set -euo pipefail
 
-usage() { sed -n '3,20p' "$0" | sed 's/^# │ \{0,1\}//; s/ *│$//'; }
+usage() { sed -n '3,21p' "$0" | sed 's/^# │ \{0,1\}//; s/ *│$//'; }
 
 MODE=normal CHECK=0
 for a in "$@"; do
@@ -95,4 +96,14 @@ mkdir -p "$LOGDIR"
 for i in 4 3 2 1; do [[ -f $LOGDIR/sway.log.$i ]] && mv -f "$LOGDIR/sway.log.$i" "$LOGDIR/sway.log.$((i + 1))"; done
 [[ -f $LOGDIR/sway.log ]] && mv -f "$LOGDIR/sway.log" "$LOGDIR/sway.log.1"
 
-exec sway -c "$CFG" >"$LOGDIR/sway.log" 2>&1
+# Lancement. Garde-fou multi-GPU : si Sway échoue en moins de 15 s avec
+# Intel+NVIDIA (ex. souci de pilote NVIDIA), relance sur l'Intel seul.
+start=$SECONDS rc=0
+sway -c "$CFG" >"$LOGDIR/sway.log" 2>&1 || rc=$?
+if (( rc != 0 && SECONDS - start < 15 )) && [[ ${WLR_DRM_DEVICES:-} == *:* ]]; then
+  echo "⚠ Sway a échoué (code $rc) en multi-GPU → relance sur l'iGPU seul ($intel)" >&2
+  mv -f "$LOGDIR/sway.log" "$LOGDIR/sway.multigpu-fail.log"
+  export WLR_DRM_DEVICES=$intel
+  rc=0; sway -c "$CFG" >"$LOGDIR/sway.log" 2>&1 || rc=$?
+fi
+exit "$rc"

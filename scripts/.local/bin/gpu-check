@@ -1,0 +1,44 @@
+#!/usr/bin/env bash
+# ╭──────────────────────────────────────────────────────────────────────╮
+# │ gpu-check — diagnostic GPU hybride Intel + NVIDIA (après redémarrage)│
+# │ Usage : gpu-check [-h]                                               │
+# │ Vérifie : pilote chargé (nvidia, pas nouveau), modeset, état RTD3,   │
+# │ nvidia-smi, cartes DRM, WLR_DRM_DEVICES de la session, sorties Sway, │
+# │ repli multi-GPU éventuel, erreurs Sway récentes.                     │
+# ╰──────────────────────────────────────────────────────────────────────╯
+set -euo pipefail
+# shellcheck source=../lib/soc/ui.sh
+source "$(dirname "$(readlink -f "$0")")/../lib/soc/ui.sh"
+[[ ${1:-} == -h || ${1:-} == --help ]] && { sed -n '3,6p' "$0" | sed 's/^# │ \{0,1\}//; s/ *│$//'; exit 0; }
+
+box_title "gpu-check" "$(date '+%F %T')"
+section "PILOTES"
+if [[ -d /sys/module/nvidia ]]; then ok "module nvidia chargé ($(cat /sys/module/nvidia/version 2>/dev/null))"
+else err "module nvidia NON chargé"; fi
+if [[ -d /sys/module/nouveau ]]; then err "nouveau encore chargé (liste noire inopérante ?)"; else ok "nouveau non chargé"; fi
+ms=$(cat /sys/module/nvidia_drm/parameters/modeset 2>/dev/null || echo '?')
+if [[ $ms == Y ]]; then ok "nvidia-drm modeset = Y"; else warn "nvidia-drm modeset = $ms"; fi
+
+section "ÉNERGIE (RTD3)"
+for d in /sys/bus/pci/devices/*; do
+  [[ $(<"$d/vendor") == 0x10de && $(<"$d/class") == 0x03* ]] || continue
+  info "RTX : runtime_status=$(<"$d/power/runtime_status") control=$(<"$d/power/control")"
+  [[ -r /proc/driver/nvidia/gpus/${d##*/}/power ]] && sed 's/^/    /' "/proc/driver/nvidia/gpus/${d##*/}/power"
+done
+
+section "nvidia-smi (réveille le GPU quelques secondes)"
+if command -v nvidia-smi >/dev/null; then
+  nvidia-smi --query-gpu=name,driver_version,temperature.gpu,power.draw,memory.used,memory.total --format=csv 2>&1 | sed 's/^/  /'
+else warn "nvidia-smi absent"; fi
+
+section "SESSION SWAY"
+for c in /sys/class/drm/card[0-9]; do info "${c##*/} : $(basename "$(readlink -f "$c/device/driver")")"; done
+if [[ -n ${SWAYSOCK:-} ]]; then
+  pid=$(pgrep -xo sway || true)
+  [[ -n $pid ]] && info "WLR_DRM_DEVICES (sway) = $(tr '\0' '\n' < "/proc/$pid/environ" | sed -n 's/^WLR_DRM_DEVICES=//p')"
+  swaymsg -t get_outputs -r | jq -r '.[] | "  sortie \(.name) \(.make) \(.model) active=\(.active)"'
+fi
+log=${XDG_STATE_HOME:-$HOME/.local/state}/sway
+[[ -f $log/sway.multigpu-fail.log ]] && warn "repli iGPU seul déclenché : voir $log/sway.multigpu-fail.log"
+errs=$(grep -ciE '\[ERROR\]|failed' "$log/sway.log" 2>/dev/null || true)
+info "sway.log : ${errs:-0} ligne(s) ERROR/failed"

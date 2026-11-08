@@ -28,7 +28,7 @@ for l in "${lists[@]}"; do
       else systemctl enable --now power-profiles-daemon && echo "✔ power-profiles-daemon activé"; fi ;;
     70-soc-tools.list)
       u=${SUDO_USER:-}
-      if [[ -n $u ]] && ! id -nG "$u" | tr ' ' '\n' | grep -qx systemd-journal; then
+      if [[ -n $u ]] && ! grep -qx systemd-journal <<<"$(id -nG "$u" | tr ' ' '\n')"; then
         usermod -aG systemd-journal "$u" && echo "✔ $u ajouté au groupe systemd-journal (effectif à la prochaine connexion)"
       fi ;;
   esac

@@ -77,5 +77,5 @@ if [[ -r /sys/class/power_supply/BAT0/capacity ]]; then
 fi
 
 # VPN
-if ip -br link | awk '$1 ~ /^(wg|tun|tap)/ && $2 != "DOWN"' | grep -q .; then line info "VPN actif"; fi
+if [[ -n $(ip -br link | awk '$1 ~ /^(wg|tun|tap)/ && $2 != "DOWN"') ]]; then line info "VPN actif"; fi
 (( SHORT )) || echo

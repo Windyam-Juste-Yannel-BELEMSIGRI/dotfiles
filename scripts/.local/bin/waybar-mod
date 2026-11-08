@@ -137,7 +137,7 @@ mod_rec() {
 
 mod_dnd() {
   if [[ ${1:-} == toggle ]]; then "$HOME/.local/bin/dnd-toggle"; return; fi
-  if makoctl mode 2>/dev/null | grep -qx do-not-disturb; then
+  if grep -qx do-not-disturb <<<"$(makoctl mode 2>/dev/null)"; then
     json "󰂛" "Ne pas déranger : ACTIF (clic : désactiver)" on
   else
     json "󰂚" "Notifications actives (clic : ne pas déranger)\nclic droit : historique" off

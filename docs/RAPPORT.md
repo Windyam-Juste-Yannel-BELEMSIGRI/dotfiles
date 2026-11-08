@@ -22,15 +22,15 @@
 
 | Domaine | Résultat |
 |---|---|
-| Paquets | 71 paquets demandés, tous issus de Debian 13 officiel. 333 paquets installés avec les dépendances (575 → 908). **0 suppression, 0 changement de version.** |
+| Paquets | 83 paquets demandés, tous issus de Debian 13 officiel (dont 12 du composant `non-free` pour NVIDIA). 420 paquets installés avec les dépendances (575 → 995). **0 suppression, 0 changement de version.** |
 | Réseau | Migration de `wlo1` d'ifupdown vers **NetworkManager** avec garde-fou à retour automatique. Bascule réussie en 2 s. |
 | Audio | PipeWire et WirePlumber. **Haut-parleurs internes réparés** : il manquait le firmware des amplificateurs Cirrus CS35L41, fourni par `firmware-cirrus`. |
 | Énergie | power-profiles-daemon, qui pilote aussi le `platform_profile` ASUS (ventilateurs quiet / balanced / performance). |
 | Session | `sway-session.target` systemd : 9 démons graphiques supervisés, avec redémarrage automatique. |
-| Interface | 2 barres waybar (principale + télémétrie SOC), fuzzel, mako, swaylock avec effet, fond d'écran généré. |
-| Scripts | 21 scripts Bash à l'identité commune. 31 fichiers analysés par shellcheck, **0 avertissement**. |
+| Interface | 2 barres waybar (principale + télémétrie SOC), fuzzel, mako, swaylock avec effet, fond d'écran généré. Fenêtres toujours espacées (10 px entre elles, 16 px aux bords), gestes 3 et 4 doigts. |
+| Scripts | 23 scripts Bash à l'identité commune. 35 fichiers analysés par shellcheck, **0 avertissement**. |
 | Démarrage | Sway lancé automatiquement sur tty1, avec garde (pas en SSH, pas sur les autres TTY) et bascule automatique sur la config de secours si la config principale est invalide. |
-| NVIDIA | **Non installé** : procédure préparée (section 9), en attente de ton accord. |
+| NVIDIA | Pilote **550.163.01** installé (DKMS, modeset activé). Sway reste sur l'Intel, avec repli automatique. **Actif après redémarrage** (section 9). |
 
 ### Identité visuelle
 
@@ -60,7 +60,7 @@ Tes dotfiles d'origine utilisaient un **verre dépoli clair** (barre flottante b
 ~/dotfiles
 ├── install.sh            déploiement complet (idempotent, --dry-run)
 ├── uninstall.sh          retrait de la configuration utilisateur
-├── rollback.sh           retour système : status | user | network | sources | packages
+├── rollback.sh           retour système : status | user | network | sources | nvidia | packages
 ├── README.md
 ├── .shellcheckrc         source-path=SCRIPTDIR (résolution des `source`)
 ├── docs/RAPPORT.md       ce document
@@ -69,8 +69,10 @@ Tes dotfiles d'origine utilisaient un **verre dépoli clair** (barre flottante b
 │   ├── phase1-root.sh            sauvegarde /etc/apt+/etc/network, ajoute contrib, lot 10
 │   ├── phase2-network-root.sh    migration wlo1 → NetworkManager avec garde-fou
 │   ├── network-rollback-root.sh  retour wlo1 → ifupdown
+│   ├── phase8-nvidia-root.sh     non-free + pilote NVIDIA + modeset + initramfs
+│   ├── nvidia-rollback-root.sh   retrait du pilote NVIDIA (simulation par défaut)
 │   ├── phase-root.sh             lots 30/40/50/70 + réglages (PPD, groupe journal)
-│   └── packages/{10-base,20-network,30-audio-power,40-theme,50-cli,70-soc-tools}.list
+│   └── packages/{10-base,20-network,30-audio-power,40-theme,50-cli,70-soc-tools,80-nvidia}.list
 ├── sway/.config/sway/
 │   ├── config                    variables, palette, includes
 │   ├── config.fallback           Sway minimal de secours
@@ -82,7 +84,7 @@ Tes dotfiles d'origine utilisaient un **verre dépoli clair** (barre flottante b
 ├── systemd-user/.config/systemd/user/
 │   ├── sway-session.target
 │   └── {swayidle,wlsunset,kanshi,cliphist-text,cliphist-image,polkit-agent,battery-alert}.service
-├── scripts/.local/bin/           21 scripts (section 6)
+├── scripts/.local/bin/           23 scripts (section 6)
 ├── scripts/.local/lib/soc/ui.sh  bibliothèque commune (couleurs, boîtes, barres, spinner, menus)
 ├── soc/.config/soc/hooks.d/ssh-sentinel.sh.example
 ├── bash/.bash_profile  +  bash/.config/bash/{init,10-env,20-aliases,30-tools,40-prompt,50-sitrep}.sh
@@ -103,7 +105,8 @@ Tes dotfiles d'origine utilisaient un **verre dépoli clair** (barre flottante b
 | `~/.local/state/setup-sway/` | `journal.md`, `baseline-20261108-185953/` (état initial) | journal / sauvegardes |
 | `~/.local/state/sway/sway.log*` | journal de Sway (5 rotations) | logs |
 | `~/.config-backup-20261108/` | `.bashrc.orig`, `.config/cava/` d'avant installation | sauvegardes |
-| `/etc/apt/sources.list` | ajout de `contrib` | modifié |
+| `/etc/apt/sources.list` | ajout de `contrib`, puis de `non-free` (NVIDIA) | modifié |
+| `/etc/modprobe.d/nvidia-drm-setup-sway.conf` | `options nvidia-drm modeset=1 fbdev=1` | créé |
 | `/etc/network/interfaces` | bloc `wlo1` commenté (`#setup-sway# …`) | modifié |
 | `/etc/NetworkManager/system-connections/wifi-wlo1-migrated.nmconnection` | profil Wi-Fi (root, 600) | créé |
 | `/var/backups/setup-sway/` | sauvegardes root (`/etc/apt`, `/etc/network`, script de bascule) | créé (700) |
@@ -198,6 +201,22 @@ Tous les paquets viennent de `deb.debian.org` / `security.debian.org` (trixie, t
 | pipx / python3-venv | 1.7.1-1 / 3.13.5-1 | Python isolé (jamais de pip global) | apt main | règle Python |
 | gh | 2.46.0-3 | CLI GitHub | apt main | métier |
 
+Le tableau ci-dessus se termine par le lot 70. Le lot 80, ajouté avec ton accord explicite, est détaillé ici :
+
+| Paquet | Version | Rôle | Source | Justification |
+|---|---|---|---|---|
+| **Lot 80 — NVIDIA** |||||
+| nvidia-driver / nvidia-kernel-dkms | 550.163.01-2 | pilote propriétaire, module compilé par DKMS | apt **non-free** | pile standard Debian, la plus éprouvée (module « open » écarté) |
+| firmware-nvidia-gsp | 550.163.01-2 | firmware GSP (Ada) | apt non-free | requis par le module |
+| nvidia-smi | 550.163.01-2 | supervision du GPU | apt non-free | diagnostic, gpu-check |
+| nvidia-suspend-common | 550.163.01-2 | services suspend/resume NVIDIA | apt non-free | mise en veille fiable |
+| libnvidia-egl-gbm1 / libnvidia-egl-wayland1 / libnvidia-allocator1 | 1.1.2.1-1 / 1:1.1.18-1 / 550.163.01-2 | GBM / EGL Wayland | apt main / non-free | wlroots multi-GPU (sorties HDMI/DP de la dGPU) |
+| nvidia-vulkan-icd | 550.163.01-2 | Vulkan | apt non-free | applis GPU |
+| libcuda1 / libnvidia-encode1 | 550.163.01-2 | CUDA, NVENC | apt non-free | calcul, encodage |
+| linux-headers-amd64 | 6.12.115-2 | headers du noyau | apt main | compilation DKMS |
+
+Dépendances notables : `dkms`, `gcc-14`, `xserver-xorg-core` + `xserver-xorg-video-nvidia` (serveur X tiré par `nvidia-driver`, **inutilisé** sous Sway, sans risque). `nvidia-persistenced` n'est **pas** installé : il garderait le GPU éveillé et viderait la batterie. `nvidia-cuda-toolkit` (compilateur nvcc, environ 4 Go) n'est pas installé : il est disponible avec `sudo apt install nvidia-cuda-toolkit` si tu compiles du CUDA. Pour PyTorch et équivalents, un venv avec les roues CUDA suffit, car elles embarquent leur runtime.
+
 **Hors apt :** JetBrainsMono Nerd Font v3.5.1, depuis la release officielle `ryanoasis/nerd-fonts`. SHA-256 vérifié contre `SHA-256.txt` : `04d5e8f903693f9dd13e16f867e994834e681eb3c72c0d337a770dcda09010cf`.
 
 ### Retirés, remplacés ou refusés
@@ -214,7 +233,6 @@ Tous les paquets viennent de `deb.debian.org` / `security.debian.org` (trixie, t
 | gammastep | non installé | un seul outil d'éclairage nocturne | wlsunset |
 | `restart` (Sway) | retiré | commande i3, inexistante dans Sway | `reload` (Super+Shift+C) |
 | Wireshark, Docker | **non installés** | lourds ; nécessitent ton accord explicite | — (voir section 13) |
-| pilote NVIDIA | **non installé** | nécessite `non-free` et ton accord | procédure en section 9 |
 | `mahoraga.png` | absent du dépôt | image non fournie (et soumise à des droits) | fond généré ; ton image est prioritaire si tu la déposes dans `~/Pictures/wallpaper/` |
 
 ---
@@ -225,11 +243,13 @@ Tous les paquets viennent de `deb.debian.org` / `security.debian.org` (trixie, t
 
 | Chemin | Rôle | Changement | Sauvegarde |
 |---|---|---|---|
-| `/etc/apt/sources.list` | dépôts | `contrib` ajouté sur les 6 lignes (deb et deb-src) | `/var/backups/setup-sway/20261108-190*/etc-apt-network.tar.gz` + `~/.local/state/setup-sway/baseline-*/etc-apt.tar.gz` |
+| `/etc/apt/sources.list` | dépôts | `contrib` ajouté sur les 6 lignes (deb et deb-src), puis `non-free` (NVIDIA) | `/var/backups/setup-sway/20261108-190*/etc-apt-network.tar.gz` + `~/.local/state/setup-sway/baseline-*/etc-apt.tar.gz` |
 | `/etc/network/interfaces` | ifupdown | bloc `allow-hotplug wlo1` / `iface wlo1` commenté (`#setup-sway# `) | `/var/backups/setup-sway/20261108-192422-network/interfaces.orig` |
 | `/etc/NetworkManager/system-connections/wifi-wlo1-migrated.nmconnection` | profil Wi-Fi | créé (root:root 600, PSK reprise sans affichage) | — (supprimable) |
+| `/etc/modprobe.d/nvidia-drm-setup-sway.conf` | KMS NVIDIA | créé : `options nvidia-drm modeset=1 fbdev=1` | `/var/backups/setup-sway/*-nvidia/etc-apt-modprobe.tar.gz` ; retrait via `rollback.sh nvidia` |
 | `/etc/group` | groupes | `systemd-journal` += `windyam_yannel` | `sudo gpasswd -d windyam_yannel systemd-journal` pour annuler |
-| `/boot/initrd.img-6.12.115+deb13.1-amd64` | initramfs | **régénéré automatiquement par Debian** (trigger fuse3), sans modification manuelle | standard |
+| `/boot/initrd.img-6.12.115+deb13.1-amd64` | initramfs | régénéré par Debian (trigger fuse3), puis par l'installation NVIDIA (liste noire de nouveau + modeset) | régénérable : `sudo update-initramfs -u` |
+| `/lib/modules/6.12.115+deb13.1-amd64/updates/dkms/nvidia-current*.ko.xz` | modules NVIDIA | construits par DKMS | retirés par `rollback.sh nvidia` |
 
 Ni GRUB, ni l'EFI, ni `/etc/fstab`, ni les partitions, ni Windows n'ont été touchés (`/etc/default/grub` et `grub.cfg` sont toujours datés de l'installation, 18:24).
 
@@ -254,7 +274,7 @@ Ni GRUB, ni l'EFI, ni `/etc/fstab`, ni les partitions, ni Windows n'ont été to
 
 - `config` définit les variables (`$mod`=Super, `$term`=foot, `$menu`=fuzzel, `$bin`=~/.local/bin) et la palette. Il inclut ensuite `/etc/sway/config.d/*`, qui importe `WAYLAND_DISPLAY`, `SWAYSOCK`, etc. dans systemd et D-Bus. Viennent ensuite `config.d/*.conf`, puis `local.d/*.conf` (non versionné).
 - **`10-input-output.conf`** : clavier `us` (QWERTY), répétition 300 ms / 40 Hz, pavé tactile (tap, défilement naturel, désactivé pendant la frappe), fond `~/.local/share/backgrounds/current`, `adaptive_sync` sur eDP-1, curseur Bibata 24.
-- **`20-theme.conf`** : bordures de 2 px (accent sarcelle sur la fenêtre focalisée), gaps 10/4 (repris du thème d'origine), `smart_gaps`, `hide_edge_borders --i3 smart`.
+- **`20-theme.conf`** : bordures de 2 px (accent sarcelle sur la fenêtre focalisée). **Gaps permanents** : `gaps inner 10` et `gaps outer 6` (soit 16 px aux bords), `smart_gaps off`, `hide_edge_borders none`. Les fenêtres ne se touchent jamais et ne collent pas aux bords, sauf en plein écran. Comme `gaps` ne vaut que pour les espaces créés ensuite, un `exec_always swaymsg "gaps inner all set 10"` les applique aussi aux espaces existants à chaque rechargement.
 - **`30-autostart.conf`** : démarre `sway-session.target`. Abonnement à l'événement `shutdown` pour l'arrêter proprement, puis `theme-apply` (gsettings).
 - **`40-rules.conf`** : fenêtres flottantes (pavucontrol, blueman, polkit, sudo-askpass, swappy, cava, dialogues), `inhibit_idle fullscreen`, étiquette `[X]` pour les fenêtres XWayland, `soc-dashboard` envoyé sur l'espace 9.
 - **`50-keys.conf`** : tous les raccourcis (section 7). Une ligne `#? description` placée au-dessus d'un `bindsym` sert de libellé à `keys-help`. Sway n'accepte pas les commentaires en fin de ligne.
@@ -281,7 +301,7 @@ C'est la palette d'origine, conservée à l'identique. Ajouts : la Nerd Font, `a
 
 ### fuzzel (`~/.config/fuzzel/fuzzel.ini`)
 
-Style wofi d'origine transposé : centré, bordure de 1 px sarcelle à 50 %, rayon 12, fond `#1c1c1e` à 94 %, correspondances fzf, icônes Papirus-Dark. En mode `--dmenu`, il sert aussi aux scripts. Les colonnes sont séparées par une tabulation (`--with-nth=1 --accept-nth=2`).
+Style wofi d'origine transposé : centré, bordure de 1 px sarcelle à 50 %, rayon 12, fond `#1c1c1e` à 94 %, correspondances fzf, icônes Papirus-Dark. Avec **`exit-on-keyboard-focus-loss=no`**, le menu ne se ferme plus quand le curseur passe sur une fenêtre (avec `focus_follows_mouse`, Sway lui retirait le focus clavier). Il se ferme par Échap, par une sélection (Entrée, clic ou tap) ou par un **second clic sur le même bouton waybar** (fonction `menu` de ui.sh). En mode `--dmenu`, il sert aussi aux scripts. Les colonnes sont séparées par une tabulation (`--with-nth=1 --accept-nth=2`).
 
 ### mako (`~/.config/mako/config`)
 
@@ -345,7 +365,9 @@ Tous les scripts suivent les mêmes conventions : `#!/usr/bin/env bash`, `set -e
 | `waybar-mod` | `waybar-mod <gpu\|fans\|conns\|ip-local\|ip-public\|vpn\|rec\|dnd\|ssh-fails>` | modules JSON pour waybar (section 5) ; IP publique via api.ipify.org au plus toutes les 10 min, désactivable avec `touch ~/.config/soc/no-public-ip` | jq, ss, nmcli, curl |
 | `battery-alert` | `battery-alert [--once\|--daemon]` | toutes les 60 s : alerte à 20 %, critique à 10 %, notification au branchement/débranchement | notify-send |
 | `theme-apply` | `theme-apply` | gsettings (thème sombre, icônes, curseur, polices) | gsettings |
-| `sway-launch` | `sway-launch [--fallback] [--check]` | exporte l'environnement Wayland (Firefox, Qt, SDL, Java, Electron, curseur) ; `WLR_DRM_DEVICES=intel:nvidia` (résolution par vendor PCI, car les chemins by-path contiennent des `:`) ; bascule sur la config de secours si `use-fallback` existe ou si `sway -C` échoue ; logs en rotation | sway |
+| `sway-launch` | `sway-launch [--fallback] [--check]` | exporte l'environnement Wayland (Firefox, Qt, SDL, Java, Electron, curseur) ; `WLR_DRM_DEVICES=intel:nvidia` (résolution par vendor PCI, car les chemins by-path contiennent des `:`) ; bascule sur la config de secours si `use-fallback` existe ou si `sway -C` échoue ; **relance sur l'Intel seul si Sway plante en moins de 15 s en multi-GPU** (log conservé dans `sway.multigpu-fail.log`) ; logs en rotation | sway |
+| `ws-switch` | `ws-switch next\|prev [--move]` | espace numéro ±1 (1↔10, y compris les espaces vides), contrairement à `workspace next_on_output` qui saute les espaces vides | swaymsg, jq |
+| `gpu-check` | `gpu-check` | pilote chargé (nvidia et non nouveau), `modeset`, état RTD3, `nvidia-smi`, pilotes des cartes DRM, `WLR_DRM_DEVICES` effectif de Sway, sorties, repli iGPU déclenché ou non, erreurs dans sway.log | nvidia-smi, swaymsg, jq |
 | `sudo-askpass` | `SUDO_ASKPASS=… sudo -A …` | petite fenêtre foot qui lit le mot de passe sans écho et le transmet par un FIFO 600 dans `$XDG_RUNTIME_DIR` ; rien n'est écrit sur disque | foot |
 
 **Point d'extension ssh-sentinel :**
@@ -438,7 +460,7 @@ Cette liste est générée à partir de `50-keys.conf`. Elle est aussi consultab
 | `XF86Launch1` | (ASUS) profil suivant |
 | `Super+Tab` | espace précédent |
 | `Super+Ctrl+Right` | espace suivant |
-| `Super+Ctrl+Left` | espace précédent (écran) |
+| `Super+Ctrl+Left` | espace précédent |
 | `Super+b` | découpe horizontale |
 | `Super+g` | découpe verticale |
 | `Super+s` | disposition empilée |
@@ -457,7 +479,9 @@ Cette liste est générée à partir de `50-keys.conf`. Elle est aussi consultab
 | `Super+1…9`, `Super+0` | espace de travail 1…9, 10 |
 | `Super+Shift+1…0` | envoyer la fenêtre sur l'espace 1…10 |
 | `Super + glisser souris` | déplacer (clic gauche) / redimensionner (clic droit) une fenêtre flottante |
-| Glisser à 4 doigts ← → | espace suivant / précédent |
+| Glisser à **4 doigts** ← / → (ou ↓ / ↑) | espace de travail suivant / précédent (vides compris) |
+| Glisser à **3 doigts** ↑ / ↓ | plein écran on / off |
+| Tap à 1 / 2 / 3 doigts | clic gauche / droit / milieu (`tap_button_map lrm`) |
 | *mode resize* : `h/j/k/l`, flèches, `Entrée`/`Échap` | redimensionner de 20 px / quitter le mode |
 
 Les touches **ASUS** (XF86Launch1 = Armoury Crate, XF86Launch4 = Fn+F5 ventilateur) sont liées au cycle des profils. Je n'ai pas pu les appuyer physiquement : vérifie leurs keysyms avec `wev` (section 13).
@@ -503,35 +527,47 @@ Les touches **ASUS** (XF86Launch1 = Armoury Crate, XF86Launch4 = Fn+F5 ventilate
 
 ## 9. NVIDIA / GPU
 
-### État actuel
+### Décision
 
-- Sway rend sur l'**iGPU Intel** (`card0`, i915), qui pilote l'écran interne eDP-1.
-- La RTX 4060 (`card1`) utilise le pilote libre **nouveau**. Elle reste en **veille D3** (`runtime_status=suspended`) : aucun impact sur la batterie. Le module waybar et `sysmon` la lisent **sans la réveiller**.
-- `WLR_DRM_DEVICES=/dev/dri/card0:/dev/dri/card1` : l'Intel est le GPU principal, la NVIDIA reste secondaire pour ses sorties. **Les connecteurs HDMI-A-3 et DP-3 sont câblés sur la NVIDIA** : forcer l'Intel seul rendrait probablement le port HDMI inutilisable. L'option `SWAY_IGPU_ONLY=1`, à placer dans `~/.config/sway/env`, existe si tu en as besoin.
-- **CUDA indisponible** avec nouveau.
+Tu as donné ton accord pour activer `non-free`, et il n'existe **pas d'alternative sûre** pour CUDA : nouveau ne fait pas de calcul. J'ai donc installé la **pile standard de Debian** (module propriétaire compilé par DKMS). C'est la configuration la plus éprouvée sous Debian. Le module « open » (`nvidia-open-kernel-dkms`), lui aussi disponible, a été écarté par prudence. `non-free` présente un risque faible : ce sont les mêmes serveurs Debian, avec des paquets signés et une politique de mise à jour stable.
 
-### Procédure proposée (non exécutée, en attente de ton accord)
+### Ce qui a été fait
 
-Versions vérifiées dans Debian 13 avec un cache apt privé, sans modifier `/etc/apt` :
+1. Simulation **sans root** via un cache apt privé : 87 paquets, 0 suppression, 0 mise à jour.
+2. `system/phase8-nvidia-root.sh` :
+   - sauvegarde de `/etc/apt` et `/etc/modprobe.d` (`/var/backups/setup-sway/*-nvidia/`) ;
+   - ajout de `non-free` ;
+   - installation (lot 80) ;
+   - DKMS : `nvidia-current/550.163.01` construit pour 6.12.115+deb13.1. Il est signé avec une clé MOK auto-générée, inutile tant que Secure Boot reste désactivé ;
+   - nouveau en liste noire (fourni par le paquet) ;
+   - `options nvidia-drm modeset=1 fbdev=1` dans `/etc/modprobe.d/nvidia-drm-setup-sway.conf` : ce réglage est désactivé par défaut en 550, alors que wlroots en a besoin pour les sorties de la dGPU. **Aucune modification de GRUB** ;
+   - initramfs régénéré. Vérifié avec `lsinitramfs` : il contient la liste noire et le modeset, mais pas `nouveau.ko`.
+3. **Un redémarrage est requis** : nouveau est encore en mémoire et utilisé par la session actuelle.
 
-| Paquet | Version |
-|---|---|
-| nvidia-driver | 550.163.01-2 |
-| nvidia-open-kernel-dkms | 550.163.01-2 (recommandé pour Ada / RTX 40) |
-| firmware-nvidia-gsp | 550.163.01-2 |
-| nvidia-suspend-common | 550.163.01-2 |
-| nvidia-smi | 550.163.01-2 |
-| nvidia-cuda-toolkit | 12.4.131~12.4.1-2 |
-| linux-headers-amd64 | 6.12.115-2 |
+### Après le redémarrage
 
-1. **Exception à ta règle :** ajouter `non-free` à `/etc/apt/sources.list` (`contrib` est déjà présent), puis `apt update`.
-2. Simuler : `apt-get -s install linux-headers-amd64 nvidia-open-kernel-dkms nvidia-driver firmware-nvidia-gsp nvidia-suspend-common`. Il faut s'arrêter si la simulation retire quoi que ce soit.
-3. Installer. DKMS compile le module. **Secure Boot est désactivé**, donc pas d'enrôlement MOK. Si tu l'actives un jour, il faudra `mokutil --import /var/lib/dkms/mok.pub` et confirmer au redémarrage.
-4. Le paquet Debian place nouveau en liste noire et active `nvidia-drm.modeset=1` via `/etc/modprobe.d/nvidia-options.conf`. **Aucune modification de GRUB n'est nécessaire** : ce point est à vérifier après installation (`cat /sys/module/nvidia_drm/parameters/modeset` doit afficher `Y`).
-5. Garder Sway sur l'Intel. `WLR_DRM_DEVICES` est déjà en place. Avec le pilote propriétaire en GPU secondaire, wlroots 0.18 fonctionne en multi-GPU, mais il faudra tester le HDMI. En cas de problème : `SWAY_IGPU_ONLY=1`.
-6. Utiliser CUDA à la demande. La gestion d'énergie RTD3 (`nvidia-suspend-common`) laisse le GPU s'endormir. Vérifier avec `nvidia-smi` et `cat /sys/bus/pci/devices/0000:01:00.0/power/runtime_status`.
+```bash
+gpu-check          # attendu : nvidia chargé, nouveau absent, modeset = Y, RTX « suspended » au repos
+nvidia-smi         # RTX 4060 Laptop GPU, driver 550.163.01
+```
 
-**Rollback NVIDIA :** depuis un TTY (Ctrl+Alt+F2), `sudo apt purge 'nvidia-*' 'libnvidia-*' firmware-nvidia-gsp && sudo update-initramfs -u`, retirer `non-free` de `sources.list`, puis redémarrer. nouveau reprend la main. Sway n'est pas affecté, puisqu'il tourne sur l'Intel. Le TTY reste disponible dans tous les cas.
+- Sway tourne toujours sur l'**iGPU Intel** : `WLR_DRM_DEVICES=intel:nvidia`, résolu par vendor PCI, donc insensible à l'ordre `card0`/`card1`. La NVIDIA reste secondaire, pour les sorties HDMI-A-3 et DP-3 qui lui sont câblées.
+- **Filets de sécurité :**
+  1. si Sway plante en moins de 15 s en multi-GPU, `sway-launch` le relance automatiquement sur l'Intel seul ;
+  2. `SWAY_IGPU_ONLY=1` dans `~/.config/sway/env` force ce mode ;
+  3. le TTY (Ctrl+Alt+F2) reste toujours accessible.
+- **Batterie :** la gestion d'énergie RTD3 laisse la RTX en veille D3 quand elle ne sert pas. waybar et sysmon lisent son état sans la réveiller. `nvidia-smi` la réveille quelques secondes.
+- **Lancer une application sur la NVIDIA :** pour CUDA, c'est automatique. Pour le rendu : `__NV_PRIME_RENDER_OFFLOAD=1 __GLX_VENDOR_LIBRARY_NAME=nvidia appli`, ou `DRI_PRIME=1` pour Vulkan/Mesa.
+- CUDA : `libcuda1` est présent. Pour PyTorch : `python3 -m venv ~/venvs/torch && ~/venvs/torch/bin/pip install torch` (roues CUDA autonomes, sans pip global).
+
+### Rollback NVIDIA
+
+```bash
+./rollback.sh nvidia            # simulation : liste ce qui serait purgé
+./rollback.sh nvidia --apply    # purge, supprime le modeset, retire non-free, initramfs ; puis redémarrer
+```
+
+Depuis un TTY sans session graphique : `sudo ~/dotfiles/system/nvidia-rollback-root.sh --apply`. nouveau reprend la main au redémarrage. Sway n'est pas affecté, puisqu'il tourne sur l'Intel.
 
 ---
 
@@ -548,6 +584,7 @@ Versions vérifiées dans Debian 13 avec un cache apt privé, sans modifier `/et
 | tmux | 3.5a | `pane-base-index 1`, d'où des panneaux adressés par identifiant |
 | PipeWire / WirePlumber | 1.4.2 / 0.5.8 | `wpctl` |
 | NetworkManager | 1.52.1 | plugin ifupdown en `managed=false` |
+| Pilote NVIDIA | 550.163.01 (DKMS) | module nommé `nvidia-current` sous Debian ; `nvidia-drm modeset=1` ajouté |
 
 **Prévention des conflits :**
 - un seul outil par fonction (section 3) ;
@@ -576,13 +613,13 @@ Versions vérifiées dans Debian 13 avec un cache apt privé, sans modifier `/et
 - **Écran de verrouillage :** basé sur le fond d'écran, **pas sur le contenu de l'écran**. Le mode `--screen` pixelise à 2 % et doit être demandé explicitement. Verrouillage avant chaque mise en veille.
 - **Vie privée :** IP publique masquée dans la barre (utile pour les captures et les démos), appel externe limité à toutes les 10 min et désactivable ; `clip-menu delete`/`wipe` pour l'historique ; `HISTCONTROL=ignoreboth`.
 - **Moindre privilège :** luminosité via logind plutôt qu'une règle udev ouverte au groupe video ; pas de `pkexec` installé ; Python uniquement via apt, pipx ou venv.
-- **Chaîne d'approvisionnement :** paquets Debian signés ; seule la police est téléchargée, avec vérification SHA-256 ; aucun script tiers exécuté (les dotfiles ont été récupérés en archive et lus, jamais exécutés).
+- **Chaîne d'approvisionnement :** paquets Debian signés (`non-free` activé uniquement pour NVIDIA, à ta demande) ; seule la police est téléchargée, avec vérification SHA-256 ; aucun script tiers exécuté (les dotfiles ont été récupérés en archive et lus, jamais exécutés).
 - **Visibilité :** le groupe `systemd-journal` permet de lire les journaux d'authentification sans sudo (lecture seule, sans droit d'écriture). Retrait : `sudo gpasswd -d windyam_yannel systemd-journal`.
 
 ### Volontairement non activé
 
 - **Pare-feu** (nftables/ufw) : aucun service n'écoute, donc ce n'était pas prioritaire. C'est néanmoins recommandé sur des réseaux publics, voir la section 13.
-- Wireshark (accès non-root aux captures via le groupe `wireshark` : décision sensible), Docker (le groupe `docker` équivaut à root), openssh-server, pilote NVIDIA, hibernation (nécessiterait `resume=` dans GRUB), AppArmor (déjà actif par défaut sous Debian, non modifié), rsyslog (le journal suffit).
+- Wireshark (accès non-root aux captures via le groupe `wireshark` : décision sensible), Docker (le groupe `docker` équivaut à root), openssh-server, hibernation (nécessiterait `resume=` dans GRUB), AppArmor (déjà actif par défaut sous Debian, non modifié), rsyslog (le journal suffit).
 
 ---
 
@@ -627,7 +664,8 @@ cd ~/dotfiles && git pull && ./install.sh --no-packages
 | `./uninstall.sh [--dry-run] [--keep-fonts]` | arrête les services, retire les liens stow et le hook `.bashrc`, restaure `~/.config-backup-*`, supprime la police |
 | `./rollback.sh status` | paquets ajoutés depuis l'état initial, sauvegardes root, état du réseau |
 | `./rollback.sh network` | rend `wlo1` à ifupdown |
-| `./rollback.sh sources` | restaure `/etc/apt/sources.list` (sans contrib) |
+| `./rollback.sh nvidia [--apply]` | retire le pilote NVIDIA (simulation par défaut) |
+| `./rollback.sh sources` | restaure `/etc/apt/sources.list` d'origine (sans contrib ni non-free ; à faire **après** `nvidia --apply`) |
 | `./rollback.sh packages [--apply]` | **simule** la purge des 68 paquets marqués manuels depuis l'état initial (NetworkManager exclu tant que le réseau n'est pas rendu à ifupdown), avec refus si un paquet critique est visé |
 
 État initial complet : `~/.local/state/setup-sway/baseline-20261108-185953/` (`apt-mark showmanual`, `dpkg --get-selections`, versions, `/etc/apt`, sorties swaymsg, services).
@@ -638,6 +676,11 @@ cd ~/dotfiles && git pull && ./install.sh --no-packages
 
 | Symptôme | Cause probable | Solution |
 |---|---|---|
+| Un menu waybar (Wi-Fi, Bluetooth…) se ferme dès que le curseur bouge | fuzzel quitte à la perte du focus (`focus_follows_mouse`) | **corrigé** (`exit-on-keyboard-focus-loss=no`) ; fermer avec Échap ou par un second clic |
+| Le glisser à 4 doigts ne fait rien | `next_on_output` ignore les espaces vides | **corrigé** (`ws-switch`) ; vérifier que le geste est bien reconnu avec `libinput debug-events` (paquet libinput-tools) |
+| Fenêtres collées entre elles ou aux bords | gaps non appliqués à un espace créé avant la config | **corrigé** ; sinon `swaymsg "gaps inner all set 10"` |
+| LED du clavier éteintes | niveau 0 (un test `osd kbd-down` l'avait mis à 0) | **corrigé** (niveau 3) ; Fn+↑/↓ ou `osd kbd-up` |
+| Sway ne démarre plus après le pilote NVIDIA | wlroots et le pilote propriétaire en multi-GPU | repli automatique sur l'Intel ; sinon `echo SWAY_IGPU_ONLY=1 >> ~/.config/sway/env` ; ou `./rollback.sh nvidia --apply` |
 | Écran noir ou retour au TTY au lancement | config Sway invalide, ou problème de GPU | `cat ~/.local/state/sway/sway.log` ; `sway-launch --check` ; `sway-launch --fallback` |
 | La barre ne s'affiche pas | waybar en échec | `systemctl --user status waybar` ; `journalctl --user -u waybar -b` ; `systemctl --user restart waybar` |
 | « Failed to acquire service name » (mako) | un mako lancé hors systemd | `pkill -x mako; systemctl --user restart mako` (la surcharge D-Bus évite que cela se reproduise) |
@@ -664,6 +707,8 @@ cd ~/dotfiles && git pull && ./install.sh --no-packages
 - Connexion à un nouveau réseau Wi-Fi protégé via `wifi-menu`.
 - Rendu `sdl_glsl` de cava.
 - Démarrage automatique réel sur tty1 : la logique a été vérifiée par simulation dans 5 scénarios.
+- **Chargement réel du pilote NVIDIA** et HDMI via la dGPU : c'est pour après le redémarrage (`gpu-check`).
+- Gestes du touchpad et taps sur les entrées fuzzel : à confirmer au doigt (testé par commandes).
 
 ### Limites connues
 
@@ -679,7 +724,7 @@ cd ~/dotfiles && git pull && ./install.sh --no-packages
 - Docker rootless, ou **Podman** (dans Debian) pour un laboratoire ssh-sentinel isolé (un openssh-server dans un conteneur à attaquer).
 - Brancher ssh-sentinel dans `hooks.d/`.
 - Profil kanshi nommé pour ton écran externe une fois identifié.
-- Pilote NVIDIA (section 9) si tu as besoin de CUDA.
+- `nvidia-cuda-toolkit` si tu compiles du CUDA (nvcc).
 
 ---
 
@@ -740,3 +785,12 @@ Ce journal reproduit tel quel `~/.local/state/setup-sway/journal.md`.
 - Idempotence : `./install.sh --dry-run` après installation → « 0 newly installed ».
 - Documentation : README.md, docs/RAPPORT.md.
 
+### 2026-11-08 — Retours utilisateur (touchpad, gaps, LED) et NVIDIA
+- Menus waybar/fuzzel refermés au moindre mouvement du touchpad : fuzzel quitte à la perte du focus clavier et `focus_follows_mouse` le lui retirait → `exit-on-keyboard-focus-loss=no` (fuzzel.ini) ; re-clic sur un bouton waybar = fermeture (ui.sh `menu`). Testé : menu conservé après changement de focus, refermé au 2e clic.
+- Glisser à 4 doigts sans effet : `workspace next_on_output` ne parcourt que les espaces existants (un seul) → nouveau script `ws-switch next|prev` (1↔10, espaces vides inclus) pour les gestes 4 doigts et Super+Ctrl+←/→ ; gestes 3 doigts haut/bas = plein écran on/off. Testé 1→2→1→10→1.
+- Fenêtres collées entre elles et aux bords : gaps non appliqués à l'espace 1 (créé avant la config) + smart_gaps → `smart_gaps off`, `hide_edge_borders none`, gaps inner 10 / outer 6 appliqués à tous les espaces à chaque rechargement. Vérifié : 16 px aux bords, 10 px entre fenêtres.
+- LED du clavier éteintes : causé par mon test `osd kbd-down` (19:30, niveau écrit à 0) → remis au niveau 3 via logind.
+- Durcissement : tous les `cmd | grep -q` (faux négatifs possibles par SIGPIPE avec pipefail) remplacés par `grep -q … <<<"$(cmd)"`.
+- NVIDIA (accord explicite de l'utilisateur) : simulation sans root (cache apt privé) → 87 paquets, 0 suppression. `system/phase8-nvidia-root.sh` : sauvegarde /var/backups/setup-sway/20261108-2009*-nvidia et 20261108-201107-nvidia ; `non-free` ajouté à /etc/apt/sources.list ; installé linux-headers-amd64 6.12.115-2, nvidia-driver / nvidia-kernel-dkms / nvidia-smi / nvidia-suspend-common / nvidia-vulkan-icd / libcuda1 / libnvidia-encode1 / libnvidia-allocator1 / firmware-nvidia-gsp 550.163.01-2, libnvidia-egl-gbm1 1.1.2.1-1, libnvidia-egl-wayland1 1:1.1.18-1 ; DKMS : nvidia-current/550.163.01 construit et signé (clé MOK DKMS auto-générée, inutile tant que Secure Boot est désactivé) ; nouveau en liste noire (paquet) ; /etc/modprobe.d/nvidia-drm-setup-sway.conf créé (`options nvidia-drm modeset=1 fbdev=1`, absent par défaut) ; initramfs régénéré (contient blacklist + modeset, sans nouveau.ko). 1er passage arrêté par mon test `modinfo nvidia` (module nommé nvidia-current) → corrigé et relancé (idempotent).
+- sway-launch : repli automatique sur l'iGPU seul si Sway échoue < 15 s en multi-GPU. Nouveau script gpu-check. rollback.sh nvidia.
+- REDÉMARRAGE requis pour charger le pilote (non effectué : à faire par l'utilisateur).

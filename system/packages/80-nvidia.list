@@ -1,0 +1,16 @@
+# Phase 8 — NVIDIA RTX 4060 (dépôt non-free, accord de l'utilisateur 2026-11-08)
+# Pile standard Debian (module propriétaire DKMS, le plus éprouvé) + Wayland/GBM,
+# Vulkan, CUDA, NVENC, suspension. nvidia-persistenced volontairement absent :
+# il garderait le GPU éveillé (batterie) sur un portable hybride.
+linux-headers-amd64
+nvidia-driver
+nvidia-kernel-dkms
+firmware-nvidia-gsp
+nvidia-smi
+nvidia-suspend-common
+libnvidia-egl-gbm1
+libnvidia-egl-wayland1
+libnvidia-allocator1
+nvidia-vulkan-icd
+libcuda1
+libnvidia-encode1

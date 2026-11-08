@@ -34,7 +34,7 @@ sig_icon() {
 # connect SSID SECURITY : profil connu → up ; sinon demande la clé si besoin
 connect() {
   local ssid=$1 sec=$2 pw
-  if nmcli -t -f NAME connection show | grep -Fxq -- "$ssid"; then
+  if grep -Fxq -- "$ssid" <<<"$(nmcli -t -f NAME connection show)"; then
     nmcli connection up id "$ssid" >/dev/null && { notify "󰤨  Connecté" "$ssid"; return; }
   fi
   if [[ -n $sec && $sec != "--" ]]; then
