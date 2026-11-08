@@ -26,7 +26,7 @@
     ],
 
     "custom/logo": {
-      "format": " ",
+      "format": " ",
       "tooltip-format": "soc-dashboard (clic)\nsitrep (clic droit)",
       "on-click": "foot --app-id=soc-dashboard ~/.local/bin/soc-dashboard",
       "on-click-right": "foot --app-id=floating-term --hold ~/.local/bin/sitrep"
@@ -36,14 +36,14 @@
       "disable-scroll": true,
       "all-outputs": false,
       "format": "{icon}",
-      "format-icons": { "urgent": "", "focused": "", "default": "" },
+      "format-icons": { "urgent": "!", "focused": "●", "default": "○" },
       "persistent-workspaces": { "1": [], "2": [], "3": [], "4": [], "5": [] }
     },
     "sway/mode": { "format": "󰘳 {}" },
     "sway/scratchpad": {
       "format": "{icon} {count}",
       "show-empty": false,
-      "format-icons": ["", "󰖯"],
+      "format-icons": ["󰖯", "󰖯"],
       "tooltip-format": "{app}: {title}"
     },
     "sway/window": { "format": "{title}", "max-length": 48, "rewrite": { "(.*) — Mozilla Firefox": "󰈹 $1" } },
@@ -82,7 +82,7 @@
       "format": "{player_icon} {dynamic}",
       "format-paused": "{status_icon} {dynamic}",
       "dynamic-len": 30,
-      "player-icons": { "default": "󰐊", "firefox": "󰈹", "spotify": "" },
+      "player-icons": { "default": "󰐊", "firefox": "󰈹", "spotify": "󰓇" },
       "status-icons": { "paused": "󰏤" }
     },
     "wireplumber": {
@@ -133,7 +133,7 @@
     "power-profiles-daemon": {
       "format": "{icon}",
       "tooltip-format": "Profil : {profile}\nPilote : {driver}\n(clic : profil suivant — pilote aussi les ventilateurs ASUS)",
-      "format-icons": { "default": "", "performance": "󰓅", "balanced": "󰾅", "power-saver": "󰾆" }
+      "format-icons": { "default": "󰐥", "performance": "󰓅", "balanced": "󰾅", "power-saver": "󰾆" }
     },
     "battery": {
       "interval": 30,
@@ -207,8 +207,8 @@
       "input-filename": "temp1_input",
       "critical-threshold": 90,
       "interval": 3,
-      "format": " {temperatureC}°",
-      "format-critical": " {temperatureC}°",
+      "format": "󰔏 {temperatureC}°",
+      "format-critical": "󱃂 {temperatureC}°",
       "tooltip-format": "CPU (package) : {temperatureC} °C"
     },
     "custom/gpu": {

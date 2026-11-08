@@ -39,10 +39,10 @@ style = "bold accent"
 read_only = " 󰌾"
 truncation_length = 4
 truncation_symbol = "…/"
-format = "[ $path]($style)[$read_only]($read_only_style) "
+format = "[󰉋 $path]($style)[$read_only]($read_only_style) "
 
 [git_branch]
-symbol = " "
+symbol = "󰘬 "
 style = "purple"
 format = "[$symbol$branch]($style) "
 
@@ -51,7 +51,7 @@ style = "yellow"
 format = "([$all_status$ahead_behind]($style) )"
 
 [python]
-symbol = " "
+symbol = "󰌠 "
 style = "blue"
 format = "[$symbol$version( \\($virtualenv\\))]($style) "
 
@@ -67,7 +67,7 @@ style = "red"
 format = "[$symbol$status]($style) "
 
 [jobs]
-symbol = " "
+symbol = "󰯽 "
 style = "yellow"
 
 [character]

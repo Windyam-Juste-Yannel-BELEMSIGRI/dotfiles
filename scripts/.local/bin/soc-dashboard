@@ -8,9 +8,9 @@
 # │     │ (sshd, sudo, su, polkit,├──────────────────────┤               │
 # │     │  login) en direct       │ ports   écoute+conns │               │
 # │     ├─────────────────────────┴──────────────────────┤               │
-# │     │ procs  processus (btop si présent, sinon top)  │               │
+# │     │ procs  processus triés par CPU (taille auto)   │               │
 # │     └────────────────────────────────────────────────┘               │
-# │   auth | alerts | ports   lance un seul panneau (utilisé par tmux)   │
+# │   auth|alerts|ports|procs lance un seul panneau (utilisé par tmux)   │
 # │   kill                    ferme la session                           │
 # │ Extension : chaque script exécutable de ~/.config/soc/hooks.d/ est   │
 # │ appelé par le panneau "alerts" ; sa sortie y est affichée. Exemple   │
@@ -48,11 +48,17 @@ pane_auth() {
     tail -n 30 -F /var/log/auth.log
   else
     info "source : journald (pas de rsyslog → pas d'auth.log sur Debian 13)"
-    journalctl -f -n 40 -o short-iso --no-hostname "${AUTH_IDS[@]}" \
-      | awk -v r="$C_RED" -v y="$C_YEL" -v g="$C_GRN" -v z="$C_RST" '
-          /Failed|failure|Invalid|BREAK-IN|incorrect|not in sudoers|DENIED/ {print r $0 z; fflush(); next}
-          /Accepted|session opened|COMMAND=/ {print y $0 z; fflush(); next}
-          {print; fflush()}'
+    # Coloration ligne à ligne en bash : mawk (awk Debian) bufferise son
+    # entrée par blocs et n'afficherait rien avec journalctl -f.
+    local l
+    journalctl -f -n 40 -o short-iso --no-hostname "${AUTH_IDS[@]}" | while IFS= read -r l; do
+      case $l in
+        *Failed*|*failure*|*FAILED*|*Invalid*|*BREAK-IN*|*incorrect*|*"not in sudoers"*|*DENIED*)
+          printf '%s%s%s\n' "$C_RED" "$l" "$C_RST" ;;
+        *Accepted*|*"session opened"*|*COMMAND=*) printf '%s%s%s\n' "$C_YEL" "$l" "$C_RST" ;;
+        *) printf '%s\n' "$l" ;;
+      esac
+    done
   fi
 }
 
@@ -95,17 +101,28 @@ alerts_once() {
   printf '  unités en échec : %s\n' "$(systemctl --failed --no-legend 2>/dev/null | wc -l)"
   printf '  erreurs noyau   : %s (prio ≤ err, %s)\n' "$(journalctl -q -k -p err --since "$since" 2>/dev/null | wc -l)" "$since"
 
-  if compgen -G "$HOOKS/*" >/dev/null; then
-    section "HOOKS ($HOOKS)"
-    local h
-    for h in "$HOOKS"/*; do
-      [[ -x $h && -f $h ]] || continue
+  local h hooks=()
+  for h in "$HOOKS"/*; do [[ -f $h && -x $h ]] && hooks+=("$h"); done
+  if (( ${#hooks[@]} )); then
+    section "HOOKS (${#hooks[@]})"
+    for h in "${hooks[@]}"; do
       printf '  %s▸ %s%s\n' "$C_ACC" "${h##*/}" "$C_RST"
       timeout 20 "$h" 2>&1 | sed 's/^/    /' || warn "hook ${h##*/} en erreur"
     done
   fi
 }
 pane_alerts() { while :; do alerts_once "-24h"; sleep 30; done; }
+
+# ── Panneau : processus (s'adapte à la taille du panneau, contrairement à btop)
+pane_procs() {
+  local rows
+  while :; do
+    rows=$(( $(tput lines 2>/dev/null || echo 20) - 3 )); (( rows < 3 )) && rows=3
+    printf '\e[H\e[2J%sPROCS%s  load %s  ·  %s\n' "$C_ACC$C_BOLD" "$C_RST" "$(cut -d' ' -f1-3 /proc/loadavg)" "$(date '+%T')"
+    ps -eo pid,user:12,pcpu,pmem,etime,comm --sort=-pcpu | head -n "$rows"
+    sleep 3
+  done
+}
 
 # ── Panneau : ports et connexions ──────────────────────────────────────
 pane_ports() {
@@ -125,17 +142,18 @@ session() {
   if tmux has-session -t "$SESSION" 2>/dev/null; then
     exec tmux attach -t "$SESSION"
   fi
-  local procs="top"; command -v btop >/dev/null && procs="btop"
-  tmux new-session -d -s "$SESSION" -n soc -x "$(tput cols 2>/dev/null || echo 200)" -y "$(tput lines 2>/dev/null || echo 50)" "$SELF auth"
-  tmux split-window -t "$SESSION:soc" -v -l 35% "$procs"
-  tmux select-pane -t "$SESSION:soc.0"
-  tmux split-window -t "$SESSION:soc.0" -h -l 45% "$SELF alerts"
-  tmux split-window -t "$SESSION:soc.1" -v -l 45% "$SELF ports"
-  tmux select-pane -t "$SESSION:soc.0" -T auth
-  tmux select-pane -t "$SESSION:soc.1" -T alerts
-  tmux select-pane -t "$SESSION:soc.2" -T ports
-  tmux select-pane -t "$SESSION:soc.3" -T procs
-  tmux select-pane -t "$SESSION:soc.0"
+  # Identifiants de panneaux (%N) : indépendants de pane-base-index
+  local p_auth p_procs p_alerts p_ports
+  p_auth=$(tmux new-session -d -P -F '#{pane_id}' -s "$SESSION" -n soc \
+    -x "$(tput cols 2>/dev/null || echo 200)" -y "$(tput lines 2>/dev/null || echo 50)" "$SELF auth")
+  p_procs=$(tmux split-window -P -F '#{pane_id}' -t "$p_auth" -v -l 30% "$SELF procs")
+  p_alerts=$(tmux split-window -P -F '#{pane_id}' -t "$p_auth" -h -l 45% "$SELF alerts")
+  p_ports=$(tmux split-window -P -F '#{pane_id}' -t "$p_alerts" -v -l 45% "$SELF ports")
+  tmux select-pane -t "$p_auth" -T auth
+  tmux select-pane -t "$p_alerts" -T alerts
+  tmux select-pane -t "$p_ports" -T ports
+  tmux select-pane -t "$p_procs" -T procs
+  tmux select-pane -t "$p_auth"
   exec tmux attach -t "$SESSION"
 }
 
@@ -146,6 +164,7 @@ case ${1:-} in
   alerts) pane_alerts ;;
   alerts-once) alerts_once "${2:--24h}" ;;
   ports) pane_ports ;;
+  procs) pane_procs ;;
   kill) tmux kill-session -t "$SESSION" ;;
   *) usage >&2; exit 1 ;;
 esac
