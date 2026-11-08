@@ -138,7 +138,10 @@ human() { numfmt --to=iec-i --suffix=B "${1:-0}" 2>/dev/null || echo "${1}B"; }
 
 # ── Menus (fuzzel en mode dmenu) ───────────────────────────────────────
 # menu PROMPT [options fuzzel...] : lit les entrées sur stdin, renvoie le choix
+#   Si un fuzzel est déjà ouvert (re-clic sur un bouton waybar), on le ferme
+#   et on s'arrête : le bouton agit comme un interrupteur.
 menu() {
   local prompt=$1; shift
+  if pgrep -x fuzzel >/dev/null; then pkill -x fuzzel; exit 0; fi
   fuzzel --dmenu --prompt "$prompt " --lines 12 --width 48 "$@"
 }
