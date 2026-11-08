@@ -1,0 +1,270 @@
+// ╭────────────────────────────────────────────────────────────────────╮
+// │ waybar "glass // SOC" — Waybar 0.12 (Debian 13)                     │
+// │ Barre 1 (haut)  : espaces, fenêtre, horloges, matériel, réseau.     │
+// │ Barre 2 (bas)   : télémétrie SOC (CPU, RAM, températures, débit,    │
+// │                   connexions, IP, échecs SSH, unités en échec).     │
+// │ Modules custom  : ~/.local/bin/waybar-mod <module>                  │
+// │ Rechargement    : systemctl --user reload waybar  (SIGUSR2)         │
+// ╰────────────────────────────────────────────────────────────────────╯
+[
+  {
+    "name": "main",
+    "layer": "top",
+    "position": "top",
+    "height": 34,
+    "margin-top": 8,
+    "margin-left": 12,
+    "margin-right": 12,
+    "spacing": 4,
+
+    "modules-left": ["custom/logo", "sway/workspaces", "sway/mode", "sway/scratchpad", "sway/window"],
+    "modules-center": ["clock", "clock#utc"],
+    "modules-right": [
+      "custom/rec", "mpris", "wireplumber", "backlight", "network", "custom/vpn",
+      "bluetooth", "power-profiles-daemon", "battery", "idle_inhibitor",
+      "custom/dnd", "tray", "custom/power"
+    ],
+
+    "custom/logo": {
+      "format": " ",
+      "tooltip-format": "soc-dashboard (clic)\nsitrep (clic droit)",
+      "on-click": "foot --app-id=soc-dashboard ~/.local/bin/soc-dashboard",
+      "on-click-right": "foot --app-id=floating-term --hold ~/.local/bin/sitrep"
+    },
+
+    "sway/workspaces": {
+      "disable-scroll": true,
+      "all-outputs": false,
+      "format": "{icon}",
+      "format-icons": { "urgent": "", "focused": "", "default": "" },
+      "persistent-workspaces": { "1": [], "2": [], "3": [], "4": [], "5": [] }
+    },
+    "sway/mode": { "format": "󰘳 {}" },
+    "sway/scratchpad": {
+      "format": "{icon} {count}",
+      "show-empty": false,
+      "format-icons": ["", "󰖯"],
+      "tooltip-format": "{app}: {title}"
+    },
+    "sway/window": { "format": "{title}", "max-length": 48, "rewrite": { "(.*) — Mozilla Firefox": "󰈹 $1" } },
+
+    "clock": {
+      "interval": 1,
+      "format": "󰥔 {:%H:%M:%S}",
+      "format-alt": "󰃭 {:%A %d %B %Y}",
+      "tooltip-format": "<tt><small>{calendar}</small></tt>",
+      "calendar": {
+        "mode": "month",
+        "weeks-pos": "left",
+        "format": {
+          "months": "<span color='#7dd3c0'><b>{}</b></span>",
+          "weeks": "<span color='#a8a8ae'>S{}</span>",
+          "weekdays": "<span color='#d8a657'>{}</span>",
+          "today": "<span color='#1c1c1e' background='#7dd3c0'><b>{}</b></span>"
+        }
+      }
+    },
+    "clock#utc": {
+      "interval": 60,
+      "timezone": "Etc/UTC",
+      "format": "UTC {:%H:%M}",
+      "tooltip-format": "Heure UTC (corrélation des logs / SIEM)\n{:%Y-%m-%dT%H:%M:%SZ}"
+    },
+
+    "custom/rec": {
+      "exec": "~/.local/bin/waybar-mod rec",
+      "return-type": "json",
+      "interval": 2,
+      "signal": 8,
+      "on-click": "~/.local/bin/screenshot-menu record-toggle"
+    },
+    "mpris": {
+      "format": "{player_icon} {dynamic}",
+      "format-paused": "{status_icon} {dynamic}",
+      "dynamic-len": 30,
+      "player-icons": { "default": "󰐊", "firefox": "󰈹", "spotify": "" },
+      "status-icons": { "paused": "󰏤" }
+    },
+    "wireplumber": {
+      "format": "{icon} {volume}%",
+      "format-muted": "󰝟 muet",
+      "format-icons": ["󰕿", "󰖀", "󰕾"],
+      "on-click": "pavucontrol",
+      "on-click-right": "~/.local/bin/osd volume-mute",
+      "scroll-step": 5,
+      "max-volume": 100
+    },
+    "backlight": {
+      "device": "nvidia_wmi_ec_backlight",
+      "format": "{icon} {percent}%",
+      "format-icons": ["󰃞", "󰃟", "󰃝", "󰃠"],
+      "on-scroll-up": "~/.local/bin/osd bright-up",
+      "on-scroll-down": "~/.local/bin/osd bright-down"
+    },
+    "network": {
+      "interval": 5,
+      "format-wifi": "{icon} {essid}",
+      "format-ethernet": "󰈀 {ifname}",
+      "format-linked": "󰈂 {ifname} (sans IP)",
+      "format-disconnected": "󰤮 hors ligne",
+      "format-icons": ["󰤯", "󰤟", "󰤢", "󰤥", "󰤨"],
+      "tooltip-format-wifi": "{essid} — signal {signalStrength}% ({signaldBm} dBm, {frequency} GHz)\n{ifname} : {ipaddr}/{cidr}\npasserelle : {gwaddr}\n↓ {bandwidthDownBytes}  ↑ {bandwidthUpBytes}",
+      "tooltip-format-ethernet": "{ifname} : {ipaddr}/{cidr}\npasserelle : {gwaddr}\n↓ {bandwidthDownBytes}  ↑ {bandwidthUpBytes}",
+      "on-click": "~/.local/bin/wifi-menu",
+      "on-click-right": "foot --app-id=floating-term nmtui"
+    },
+    "custom/vpn": {
+      "exec": "~/.local/bin/waybar-mod vpn",
+      "return-type": "json",
+      "interval": 10
+    },
+    "bluetooth": {
+      "format": "󰂯",
+      "format-disabled": "󰂲",
+      "format-off": "󰂲",
+      "format-connected": "󰂱 {num_connections}",
+      "tooltip-format": "{controller_alias}\t{controller_address}\n{status}",
+      "tooltip-format-connected": "{controller_alias}\n{num_connections} appareil(s) :\n{device_enumerate}",
+      "tooltip-format-enumerate-connected": "  {device_alias}",
+      "tooltip-format-enumerate-connected-battery": "  {device_alias}  {device_battery_percentage}%",
+      "on-click": "~/.local/bin/bt-menu",
+      "on-click-right": "blueman-manager"
+    },
+    "power-profiles-daemon": {
+      "format": "{icon}",
+      "tooltip-format": "Profil : {profile}\nPilote : {driver}\n(clic : profil suivant — pilote aussi les ventilateurs ASUS)",
+      "format-icons": { "default": "", "performance": "󰓅", "balanced": "󰾅", "power-saver": "󰾆" }
+    },
+    "battery": {
+      "interval": 30,
+      "states": { "warning": 30, "critical": 15 },
+      "format": "{icon} {capacity}%",
+      "format-charging": "󰂄 {capacity}%",
+      "format-plugged": "󰚥 {capacity}%",
+      "format-icons": ["󰁺", "󰁼", "󰁾", "󰂀", "󰁹"],
+      "tooltip-format": "{timeTo}\n{power} W — santé {health}%"
+    },
+    "idle_inhibitor": {
+      "format": "{icon}",
+      "format-icons": { "activated": "󰅶", "deactivated": "󰾪" },
+      "tooltip-format-activated": "Mise en veille bloquée",
+      "tooltip-format-deactivated": "Mise en veille autorisée"
+    },
+    "custom/dnd": {
+      "exec": "~/.local/bin/waybar-mod dnd",
+      "return-type": "json",
+      "interval": 30,
+      "signal": 8,
+      "on-click": "~/.local/bin/dnd-toggle",
+      "on-click-right": "makoctl restore"
+    },
+    "tray": { "icon-size": 16, "spacing": 8 },
+    "custom/power": {
+      "format": "⏻",
+      "tooltip-format": "Alimentation (Super+Échap)",
+      "on-click": "~/.local/bin/power-menu",
+      "on-click-right": "~/.local/bin/lock-glitch"
+    }
+  },
+
+  {
+    "name": "telemetry",
+    "layer": "top",
+    "position": "bottom",
+    "height": 26,
+    "margin-bottom": 6,
+    "margin-left": 12,
+    "margin-right": 12,
+    "spacing": 2,
+
+    "modules-left": ["custom/host", "cpu", "memory", "temperature", "custom/gpu", "custom/fans", "disk"],
+    "modules-right": [
+      "network#speed", "custom/conns", "custom/ip-local", "custom/ip-public",
+      "custom/ssh-fails", "systemd-failed-units"
+    ],
+
+    "custom/host": {
+      "exec": "printf '◢ %s // SOC' \"$(hostname -s)\"",
+      "interval": "once",
+      "tooltip": false,
+      "on-click": "foot --app-id=floating-term ~/.local/bin/sysmon"
+    },
+    "cpu": {
+      "interval": 3,
+      "format": "󰍛 {usage:>2}% ({load:.2f})",
+      "states": { "warning": 70, "critical": 90 },
+      "tooltip": true,
+      "on-click": "foot --app-id=floating-term btop"
+    },
+    "memory": {
+      "interval": 5,
+      "format": "󰘚 {percentage}% {used:.1f}G",
+      "tooltip-format": "RAM {used:.1f}/{total:.1f} Gio\nswap {swapUsed:.1f}/{swapTotal:.1f} Gio",
+      "states": { "warning": 75, "critical": 90 }
+    },
+    "temperature": {
+      "hwmon-path-abs": "/sys/devices/platform/coretemp.0/hwmon",
+      "input-filename": "temp1_input",
+      "critical-threshold": 90,
+      "interval": 3,
+      "format": " {temperatureC}°",
+      "format-critical": " {temperatureC}°",
+      "tooltip-format": "CPU (package) : {temperatureC} °C"
+    },
+    "custom/gpu": {
+      "exec": "~/.local/bin/waybar-mod gpu",
+      "return-type": "json",
+      "interval": 10
+    },
+    "custom/fans": {
+      "exec": "~/.local/bin/waybar-mod fans",
+      "return-type": "json",
+      "interval": 5,
+      "on-click": "~/.local/bin/power-profile cycle"
+    },
+    "disk": {
+      "interval": 60,
+      "path": "/",
+      "format": "󰋊 {percentage_used}%",
+      "tooltip-format": "/ : {used} / {total} ({free} libres)"
+    },
+    "network#speed": {
+      "interval": 2,
+      "format": "󰇚 {bandwidthDownBytes} 󰕒 {bandwidthUpBytes}",
+      "format-disconnected": "󰇚 — 󰕒 —",
+      "tooltip-format": "{ifname} : débit sur 2 s",
+      "on-click": "foot --app-id=floating-term ~/.local/bin/netwatch"
+    },
+    "custom/conns": {
+      "exec": "~/.local/bin/waybar-mod conns",
+      "return-type": "json",
+      "interval": 5,
+      "on-click": "foot --app-id=floating-term ~/.local/bin/netwatch"
+    },
+    "custom/ip-local": {
+      "exec": "~/.local/bin/waybar-mod ip-local",
+      "return-type": "json",
+      "interval": 15
+    },
+    "custom/ip-public": {
+      "exec": "~/.local/bin/waybar-mod ip-public",
+      "return-type": "json",
+      "interval": 60,
+      "signal": 8,
+      "on-click": "~/.local/bin/waybar-mod ip-public toggle"
+    },
+    "custom/ssh-fails": {
+      "exec": "~/.local/bin/waybar-mod ssh-fails",
+      "return-type": "json",
+      "interval": 60,
+      "on-click": "foot --app-id=soc-dashboard ~/.local/bin/soc-dashboard"
+    },
+    "systemd-failed-units": {
+      "hide-on-ok": false,
+      "format": "󰒏 {nr_failed}",
+      "format-ok": "󰒏 ok",
+      "system": true,
+      "user": true
+    }
+  }
+]

@@ -1,0 +1,133 @@
+/* ╭──────────────────────────────────────────────────────────────────╮
+   │ waybar "glass // SOC" — verre sombre + accent sarcelle            │
+   │ Hérité du thème d'origine : barre flottante, pastilles arrondies, │
+   │ bordure 1px translucide. Évolution : fond sombre, néon discret.   │
+   │ Palette : @define-color ci-dessous (miroir de sway/foot/fuzzel).   │
+   ╰──────────────────────────────────────────────────────────────────╯ */
+
+@define-color bg       #1c1c1e;
+@define-color surface  #2a2a2e;
+@define-color overlay  #3a3a40;
+@define-color fg       #e8e8ec;
+@define-color muted    #a8a8ae;
+@define-color accent   #7dd3c0;
+@define-color accent2  #8de3d0;
+@define-color red      #c07070;
+@define-color green    #8fb090;
+@define-color yellow   #d8a657;
+@define-color blue     #7a9dc0;
+@define-color purple   #b090c0;
+
+* {
+  font-family: "JetBrainsMono Nerd Font", sans-serif;
+  font-size: 13px;
+  min-height: 0;
+  border: none;
+  border-radius: 0;
+}
+
+window#waybar {
+  background: alpha(@bg, 0.78);
+  border: 1px solid alpha(@accent, 0.28);
+  border-radius: 14px;
+  color: @fg;
+}
+window#waybar.telemetry {
+  background: alpha(@bg, 0.70);
+  border-radius: 10px;
+  font-size: 12px;
+}
+
+tooltip {
+  background: alpha(@bg, 0.96);
+  border: 1px solid alpha(@accent, 0.45);
+  border-radius: 10px;
+}
+tooltip label { color: @fg; font-family: "JetBrainsMono Nerd Font"; }
+
+/* ── Pastilles ── */
+.modules-left > widget > *,
+.modules-center > widget > *,
+.modules-right > widget > * {
+  background: alpha(@surface, 0.75);
+  border: 1px solid alpha(@fg, 0.06);
+  border-radius: 10px;
+  padding: 2px 10px;
+  margin: 4px 1px;
+  color: @fg;
+}
+window#waybar.telemetry .modules-left > widget > *,
+window#waybar.telemetry .modules-right > widget > * {
+  padding: 0 8px;
+  margin: 3px 1px;
+  border-radius: 7px;
+  color: @muted;
+}
+.modules-left  { margin-left: 6px; }
+.modules-right { margin-right: 6px; }
+
+/* Logo / host : accent plein */
+#custom-logo { color: @bg; background: @accent; padding: 2px 12px; }
+#custom-host { color: @accent; font-weight: bold; }
+
+/* ── Espaces de travail ── */
+#workspaces { padding: 0 4px; }
+#workspaces button {
+  padding: 0 6px;
+  color: @muted;
+  background: transparent;
+  border-radius: 8px;
+  transition: all 0.15s ease;
+}
+#workspaces button.focused,
+#workspaces button.active {
+  color: @accent;
+  background: alpha(@accent, 0.12);
+}
+#workspaces button.urgent { color: @red; }
+#workspaces button:hover  { background: alpha(@fg, 0.08); box-shadow: none; }
+
+#mode { color: @bg; background: @yellow; font-weight: bold; }
+#window { color: @muted; }
+window#waybar.empty #window { background: transparent; border-color: transparent; }
+
+/* ── Horloges ── */
+#clock { color: @accent; font-weight: bold; }
+#clock.utc { color: @muted; }
+
+/* ── États ── */
+#custom-rec.recording { color: @bg; background: @red; font-weight: bold; }
+#custom-rec.idle { background: transparent; border-color: transparent; padding: 0; margin: 0; }
+#wireplumber.muted { color: @red; }
+#network.disconnected, #network.linked { color: @red; }
+#custom-vpn.on { color: @bg; background: @green; }
+#custom-vpn.off { color: @muted; }
+#bluetooth.connected { color: @blue; }
+#bluetooth.off, #bluetooth.disabled { color: @muted; }
+#power-profiles-daemon.performance { color: @red; }
+#power-profiles-daemon.balanced    { color: @accent; }
+#power-profiles-daemon.power-saver { color: @green; }
+#battery.charging, #battery.plugged { color: @green; }
+#battery.warning:not(.charging) { color: @yellow; }
+#battery.critical:not(.charging) {
+  color: @bg; background: @red;
+  animation: blink 1s steps(2) infinite;
+}
+@keyframes blink { to { background: alpha(@red, 0.4); } }
+#idle_inhibitor.activated { color: @yellow; }
+#custom-dnd.on { color: @yellow; }
+#custom-power { color: @red; padding: 2px 12px; }
+#custom-power:hover { background: alpha(@red, 0.22); }
+
+/* ── Télémétrie ── */
+#cpu.warning, #memory.warning, #custom-conns.warning, #custom-ssh-fails.warning { color: @yellow; }
+#cpu.critical, #memory.critical, #temperature.critical,
+#custom-gpu.critical, #custom-ssh-fails.critical { color: @bg; background: @red; }
+#custom-gpu.idle { color: @overlay; }
+#custom-gpu.active { color: @green; }
+#custom-fans.performance { color: @red; }
+#custom-fans.quiet { color: @green; }
+#custom-ip-public.unmasked { color: @yellow; }
+#custom-ssh-fails.ok { color: @green; }
+#systemd-failed-units.degraded { color: @bg; background: @red; }
+#systemd-failed-units.ok { color: @green; }
