@@ -1,0 +1,36 @@
+# ╭──────────────────────────────────────────────────────────────────────╮
+# │  ~/.config/sway/config — "glass // SOC" (Sway 1.10, Debian 13)       │
+# │  Évolution sombre du thème "verre dépoli" des dotfiles d'origine.     │
+# │  Les blocs thématiques sont dans config.d/*.conf (ordre alphabétique) │
+# │  Secours : sway -c ~/.config/sway/config.fallback                     │
+# ╰──────────────────────────────────────────────────────────────────────╯
+
+### Variables ---------------------------------------------------------------
+set $mod   Mod4
+set $left  h
+set $down  j
+set $up    k
+set $right l
+set $term  foot
+set $menu  fuzzel
+set $bin   ~/.local/bin
+
+### Palette (identique à waybar/colors.css, foot, fuzzel, mako) -----------
+set $bg        #1c1c1e
+set $surface   #2a2a2e
+set $overlay   #3a3a40
+set $fg        #e8e8ec
+set $muted     #a8a8ae
+set $accent    #7dd3c0
+set $accent2   #8de3d0
+set $red       #c07070
+set $yellow    #d8a657
+
+# Intégration systemd (DISPLAY, WAYLAND_DISPLAY, SWAYSOCK → services user)
+include /etc/sway/config.d/*
+
+# Modules de configuration
+include ~/.config/sway/config.d/*.conf
+
+# Surcharges locales non versionnées (ex. échelle d'écran) : local.d/*.conf
+include ~/.config/sway/local.d/*.conf

@@ -1,0 +1,37 @@
+# ── Sway minimal de secours ──────────────────────────────────────────────
+# Démarrage depuis un TTY :  sway -c ~/.config/sway/config.fallback
+#   (ou : touch ~/.config/sway/use-fallback  puis se reconnecter sur tty1)
+# Ne dépend que de sway + foot. Pas de waybar → swaybar intégré.
+set $mod Mod4
+input type:keyboard xkb_layout us
+output * bg #1c1c1e solid_color
+default_border pixel 2
+client.focused #7dd3c0 #2a2a2e #e8e8ec #8de3d0 #7dd3c0
+
+bindsym $mod+Return exec foot
+bindsym $mod+d exec fuzzel
+bindsym $mod+Shift+q kill
+bindsym $mod+Shift+c reload
+bindsym $mod+Shift+e exec swaynag -t warning -m 'Quitter sway ?' -B 'Oui' 'swaymsg exit'
+bindsym $mod+Left focus left
+bindsym $mod+Right focus right
+bindsym $mod+Up focus up
+bindsym $mod+Down focus down
+bindsym $mod+1 workspace number 1
+bindsym $mod+2 workspace number 2
+bindsym $mod+3 workspace number 3
+bindsym $mod+Shift+1 move container to workspace number 1
+bindsym $mod+Shift+2 move container to workspace number 2
+bindsym $mod+Shift+3 move container to workspace number 3
+bindsym $mod+f fullscreen
+
+bar {
+    position top
+    status_command while date +'%Y-%m-%d %H:%M  [FALLBACK]'; do sleep 30; done
+    colors {
+        background #1c1c1e
+        statusline #e8e8ec
+        focused_workspace #7dd3c0 #7dd3c0 #1c1c1e
+    }
+}
+include /etc/sway/config.d/*
