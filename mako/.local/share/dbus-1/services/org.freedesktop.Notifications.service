@@ -1,0 +1,7 @@
+# Surcharge utilisateur : l'activation D-Bus des notifications passe par
+# systemd (mako.service) au lieu de lancer un mako "orphelin" hors service,
+# ce qui faisait échouer mako.service ("Failed to acquire service name").
+[D-BUS Service]
+Name=org.freedesktop.Notifications
+Exec=/usr/bin/false
+SystemdService=mako.service

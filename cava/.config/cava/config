@@ -1,0 +1,35 @@
+; ── cava 0.10 "glass // SOC" (Super+Shift+V) ───────────────────────────
+; Sortie ncurses dans foot (défaut). Les shaders GLSL du thème d'origine
+; (shaders/*.frag, *.vert) servent à la sortie SDL/OpenGL de cava :
+;   method = sdl_glsl   +   vertex_shader / fragment_shader ci-dessous.
+; Ils ne concernent PAS Sway (Sway ne gère pas de shaders).
+[general]
+mode = normal
+framerate = 60
+bars = 0
+bar_width = 2
+bar_spacing = 1
+autosens = 1
+sensitivity = 100
+
+[input]
+method = pipewire
+source = auto
+
+[output]
+method = ncurses
+channels = stereo
+; Variante OpenGL (fenêtre SDL) avec les shaders d'origine :
+; method = sdl_glsl
+; vertex_shader = pass_through.vert
+; fragment_shader = bar_spectrum.frag
+
+[color]
+gradient = 1
+gradient_count = 3
+gradient_color_1 = '#2f4a45'
+gradient_color_2 = '#7dd3c0'
+gradient_color_3 = '#8de3d0'
+
+[smoothing]
+noise_reduction = 60

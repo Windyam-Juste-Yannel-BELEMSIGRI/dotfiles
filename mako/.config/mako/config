@@ -1,0 +1,49 @@
+# ── mako "glass // SOC" (mako 1.10) ──────────────────────────────────────
+# Mode "ne pas déranger" : makoctl mode -t do-not-disturb (Super+Shift+M)
+font=JetBrainsMono Nerd Font 10
+background-color=#1c1c1ee6
+text-color=#e8e8ec
+border-color=#7dd3c080
+progress-color=over #7dd3c066
+border-radius=10
+border-size=1
+padding=12
+margin=10
+outer-margin=6
+width=360
+height=140
+default-timeout=5000
+max-visible=5
+max-history=50
+icons=1
+max-icon-size=32
+icon-path=/usr/share/icons/Papirus-Dark
+anchor=top-right
+layer=overlay
+format=<b>%s</b>\n%b
+group-by=app-name
+
+[urgency=low]
+border-color=#4a4a50
+default-timeout=3000
+
+[urgency=critical]
+border-color=#c07070
+background-color=#2a1c1ee6
+default-timeout=0
+
+# OSD (volume, luminosité…) : notification remplacée en place, centrée en bas
+[app-name=osd]
+anchor=bottom-center
+width=280
+height=60
+default-timeout=1200
+group-by=none
+border-color=#7dd3c0
+format=%s
+
+[mode=do-not-disturb]
+invisible=1
+
+[mode=do-not-disturb urgency=critical]
+invisible=0

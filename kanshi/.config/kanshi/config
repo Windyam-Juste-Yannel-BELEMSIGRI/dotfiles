@@ -1,0 +1,15 @@
+# ── kanshi 1.5 : profils d'écrans ────────────────────────────────────────
+# Noms des sorties : swaymsg -t get_outputs. Recharger : kanshictl reload
+# Écran seul (portable)
+profile portable {
+    output eDP-1 enable position 0,0 scale 1
+}
+
+# HDMI branché (n'importe quel écran) : externe à droite de l'écran interne
+profile hdmi {
+    output eDP-1 enable position 0,0 scale 1
+    output HDMI-A-1 enable position 2560,0
+}
+
+# Capot fermé + HDMI (mode "station") : désactiver eDP-1 via
+#   swaymsg output eDP-1 disable   (bindswitch lid voir 60-lid.conf)

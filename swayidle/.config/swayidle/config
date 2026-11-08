@@ -1,0 +1,8 @@
+# ── swayidle 1.8 (lancé par swayidle.service) ────────────────────────────
+#  5 min  : verrouillage (lock-glitch)
+# 10 min  : écrans éteints
+# veille  : verrouillage avant suspension
+timeout 300 '~/.local/bin/lock-glitch'
+timeout 600 'swaymsg "output * power off"' resume 'swaymsg "output * power on"'
+before-sleep '~/.local/bin/lock-glitch --now'
+lock '~/.local/bin/lock-glitch --now'
