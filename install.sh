@@ -14,6 +14,7 @@
 # │ Étapes (idempotentes, relançables) :                                  │
 # │  1. vérifications (Debian 13, sudo, Wayland)                          │
 # │  2. apt : contrib + listes system/packages/{10,20,30,40,50}*.list     │
+# │     (20-network installé, mais wlo1 reste à ifupdown sans l'option)  │
 # │     (simulation préalable, ARRÊT si suppression/changement de version)│
 # │  3. sauvegarde des fichiers existants → ~/.config-backup-AAAAMMJJ/    │
 # │  4. liens symboliques GNU stow (--no-folding) vers $HOME              │
@@ -25,7 +26,7 @@ set -euo pipefail
 DOT=$(cd "$(dirname "$(readlink -f "$0")")" && pwd)
 # shellcheck source=scripts/.local/lib/soc/ui.sh
 source "$DOT/scripts/.local/lib/soc/ui.sh"
-usage() { sed -n '3,24p' "$0" | sed 's/^# │ \{0,1\}//; s/ *│$//'; }
+usage() { sed -n '3,25p' "$0" | sed 's/^# │ \{0,1\}//; s/ *│$//'; }
 
 DRY=0 PKG=1 SOC=0 NET=0
 for a in "$@"; do
@@ -67,7 +68,8 @@ command -v sudo >/dev/null || die "sudo requis"
 # ── 2. Paquets ──────────────────────────────────────────────────────────
 section "2. PAQUETS (apt, dépôts officiels)"
 if (( PKG )); then
-  lists=("$DOT"/system/packages/{10,30,40,50}-*.list)
+  # 20-network sans migration : NM ignore wlo1 tant qu'il est dans interfaces
+  lists=("$DOT"/system/packages/{10,20,30,40,50}-*.list)
   (( SOC )) && lists+=("$DOT"/system/packages/70-soc-tools.list)
   if (( DRY )); then
     "$DOT/system/apt-install.sh" --dry-run "${lists[@]}" | tail -3
