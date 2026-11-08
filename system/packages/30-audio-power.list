@@ -1,0 +1,13 @@
+# Phase 3 — audio / énergie / capteurs
+pipewire-audio
+wireplumber
+pavucontrol
+playerctl
+brightnessctl
+power-profiles-daemon
+upower
+lm-sensors
+cava
+rtkit
+# Firmware des amplis Cirrus CS35L41 (haut-parleurs internes ASUS, ID 10431c9f)
+firmware-cirrus

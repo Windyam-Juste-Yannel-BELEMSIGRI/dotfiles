@@ -1,0 +1,14 @@
+# Phase 4 — thème (icônes, curseur, GTK/Qt, emoji, génération d'images, fichiers)
+papirus-icon-theme
+gnome-themes-extra
+bibata-cursor-theme
+adwaita-qt
+fonts-noto-color-emoji
+fonts-jetbrains-mono
+imagemagick
+thunar
+xz-utils
+adwaita-qt6
+qt6-wayland
+qtwayland5
+libglib2.0-bin

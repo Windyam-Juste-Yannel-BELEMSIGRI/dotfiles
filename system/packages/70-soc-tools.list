@@ -1,0 +1,9 @@
+# Phase 7 — outils métier légers (confirmés). wireshark / docker.io : NON inclus.
+nmap
+tcpdump
+whois
+bind9-dnsutils
+postgresql-client
+pipx
+python3-venv
+gh

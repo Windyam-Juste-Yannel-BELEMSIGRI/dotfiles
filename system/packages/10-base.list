@@ -1,0 +1,22 @@
+# Phase 1 — base Wayland/Sway (Debian 13 main)
+git
+stow
+shellcheck
+jq
+fuzzel
+swaylock
+swayidle
+swaybg
+grim
+slurp
+swappy
+wl-clipboard
+cliphist
+wf-recorder
+mako-notifier
+libnotify-bin
+wlsunset
+kanshi
+xdg-desktop-portal-wlr
+xdg-desktop-portal-gtk
+mate-polkit
