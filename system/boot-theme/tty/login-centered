@@ -1,0 +1,3 @@
+#!/bin/sh
+printf '\033[28;71H'
+exec /bin/login "$@"

@@ -7,6 +7,7 @@
 # │   network   rend wlo1 à ifupdown (system/network-rollback-root.sh)    │
 # │   sources   restaure /etc/apt depuis /var/backups/setup-sway (tar)    │
 # │   nvidia    retire le pilote NVIDIA (simulation ; --apply exécute)    │
+# │   boot      retire le thème GRUB et le style des TTY                  │
 # │   packages  liste les paquets marqués « manuels » depuis l'état       │
 # │             initial et SIMULE leur purge ; --apply pour exécuter      │
 # │             (après lecture de la simulation, aucune suppression       │
@@ -18,7 +19,7 @@ set -euo pipefail
 DOT=$(cd "$(dirname "$(readlink -f "$0")")" && pwd)
 # shellcheck source=scripts/.local/lib/soc/ui.sh
 source "$DOT/scripts/.local/lib/soc/ui.sh"
-usage() { sed -n '3,15p' "$0" | sed 's/^# │ \{0,1\}//; s/ *│$//'; }
+usage() { sed -n '3,16p' "$0" | sed 's/^# │ \{0,1\}//; s/ *│$//'; }
 
 cmd=${1:-status}; APPLY=0; [[ ${2:-} == --apply ]] && APPLY=1
 BASE=$(find "$HOME/.local/state/setup-sway" -maxdepth 1 -type d -name 'baseline-*' 2>/dev/null | sort | head -1)
@@ -39,6 +40,7 @@ case $cmd in
   user) exec "$DOT/uninstall.sh" ;;
   network) as_root "$DOT/system/network-rollback-root.sh" ;;
   nvidia) as_root "$DOT/system/nvidia-rollback-root.sh" ${2:+"$2"} ;;
+  boot) as_root "$DOT/system/boot-theme-rollback-root.sh" ;;
   sources)
     tarball=$(as_root find /var/backups/setup-sway -maxdepth 2 -name 'etc-apt-network.tar.gz' | sort | head -1)
     [[ -n $tarball ]] || die "aucune sauvegarde /etc/apt"

@@ -131,3 +131,11 @@ window#waybar.empty #window { background: transparent; border-color: transparent
 #custom-ssh-fails.ok { color: @green; }
 #systemd-failed-units.degraded { color: @bg; background: @red; }
 #systemd-failed-units.ok { color: @green; }
+
+/* ── Largeurs fixes : la barre ne « danse » plus quand les valeurs changent ──
+   (formats paddés dans config.jsonc + largeur mini pour les modules custom) */
+#custom-host { min-width: 150px; }
+#custom-gpu  { min-width: 60px; }
+#custom-fans { min-width: 70px; }
+#custom-conns { min-width: 55px; }
+#custom-ssh-fails { min-width: 45px; }

@@ -1,0 +1,48 @@
+{
+  "workbench.colorCustomizations": {
+    "focusBorder": "#7dd3c0",
+    "activityBarBadge.background": "#7dd3c0",
+    "activityBarBadge.foreground": "#1c1c1e",
+    "statusBar.background": "#1c1c1e",
+    "statusBar.border": "#7dd3c055",
+    "statusBarItem.remoteBackground": "#7dd3c0",
+    "statusBarItem.remoteForeground": "#1c1c1e",
+    "editorCursor.foreground": "#7dd3c0",
+    "terminal.ansiCyan": "#7dd3c0"
+  },
+  "window.titleBarStyle": "native",
+  "window.menuBarVisibility": "toggle",
+  "workbench.startupEditor": "none",
+
+  "editor.fontFamily": "'JetBrainsMono Nerd Font', 'JetBrains Mono', monospace",
+  "editor.fontSize": 14,
+  "editor.fontLigatures": true,
+  "editor.rulers": [88],
+  "editor.minimap.enabled": false,
+  "editor.renderWhitespace": "trailing",
+  "terminal.integrated.fontFamily": "'JetBrainsMono Nerd Font'",
+  "files.trimTrailingWhitespace": true,
+  "files.insertFinalNewline": true,
+
+  // Vie privée / mises à jour (code est mis à jour par apt)
+  "telemetry.telemetryLevel": "off",
+  "update.mode": "none",
+  "git.autofetch": false,
+
+  // Python : ruff au formatage, venv du projet (.venv créé par uv)
+  "[python]": {
+    "editor.defaultFormatter": "charliermarsh.ruff",
+    "editor.formatOnSave": true,
+    "editor.codeActionsOnSave": { "source.organizeImports": "explicit" }
+  },
+  "python.terminal.activateEnvironment": true,
+
+  // LaTeX : latexmk, PDF dans un onglet, fichiers auxiliaires dans build/
+  "latex-workshop.latex.outDir": "%DIR%/build",
+  "latex-workshop.view.pdf.viewer": "tab",
+  "latex-workshop.latex.autoClean.run": "onFailed",
+
+  // C
+  "C_Cpp.default.cStandard": "c17",
+  "C_Cpp.default.compilerPath": "/usr/bin/gcc"
+}

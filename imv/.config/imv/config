@@ -1,0 +1,14 @@
+# imv — palette glass // SOC
+[options]
+background = 1c1c1e
+overlay = false
+overlay_font = JetBrains Mono:11
+overlay_text_color = e8e8ec
+overlay_background_color = 2a2a2e
+overlay_background_alpha = dd
+title_text = imv — $imv_current_file ($imv_current_index/$imv_file_count)
+overlay_text = $imv_current_file  ·  ${imv_width}×${imv_height}  ·  ${imv_scale}%
+
+[binds]
+i = overlay
+<Delete> = exec rm "$imv_current_file"; close

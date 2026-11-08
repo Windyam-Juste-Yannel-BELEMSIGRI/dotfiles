@@ -1,0 +1,39 @@
+# zathura — palette glass // SOC (miroir de foot / waybar)
+# Ctrl+R : inverser les couleurs du document (lecture de nuit)
+set font                    "JetBrains Mono 11"
+set default-bg              "#1c1c1e"
+set default-fg              "#e8e8ec"
+set statusbar-bg            "#2a2a2e"
+set statusbar-fg            "#a8a8ae"
+set inputbar-bg             "#1c1c1e"
+set inputbar-fg             "#7dd3c0"
+set notification-bg         "#2a2a2e"
+set notification-fg         "#e8e8ec"
+set notification-error-bg   "#c07070"
+set notification-error-fg   "#1c1c1e"
+set notification-warning-bg "#d8a657"
+set notification-warning-fg "#1c1c1e"
+set completion-bg           "#2a2a2e"
+set completion-fg           "#e8e8ec"
+set completion-group-bg     "#1c1c1e"
+set completion-group-fg     "#7dd3c0"
+set completion-highlight-bg "#7dd3c0"
+set completion-highlight-fg "#1c1c1e"
+set index-bg                "#1c1c1e"
+set index-fg                "#e8e8ec"
+set index-active-bg         "#7dd3c0"
+set index-active-fg         "#1c1c1e"
+set highlight-color         "rgba(125,211,192,0.35)"
+set highlight-active-color  "rgba(141,227,208,0.60)"
+set recolor-lightcolor      "#1c1c1e"
+set recolor-darkcolor       "#e8e8ec"
+set recolor-keephue         true
+
+set selection-clipboard     clipboard
+set adjust-open             "best-fit"
+set scroll-page-aware       true
+set statusbar-home-tilde    true
+set window-title-basename   true
+# LaTeX : Ctrl+clic dans le PDF → ligne source dans VS Code
+set synctex                 true
+set synctex-editor-command  "code --goto %{input}:%{line}"

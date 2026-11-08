@@ -2,6 +2,6 @@
 sway/.config/sway/local.d/
 sway/.config/sway/env
 sway/.config/sway/use-fallback
-sway/.config/sway/no-autostart
 soc/.config/soc/hooks.d/*.sh
 *.swp
+*.bak-*

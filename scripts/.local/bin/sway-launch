@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # ╭──────────────────────────────────────────────────────────────────────╮
 # │ sway-launch — démarre Sway avec l'environnement Wayland du poste     │
-# │ Appelé par ~/.bash_profile sur tty1, ou à la main depuis un TTY.     │
+# │ Appelé par greetd (tuigreet, vt7), ou à la main depuis un TTY.       │
 # │                                                                       │
 # │ Usage : sway-launch [--fallback] [--check] [-h]                       │
 # │   --fallback  démarre avec ~/.config/sway/config.fallback             │
@@ -76,8 +76,18 @@ if [[ -n $intel ]]; then
   fi
 fi
 
-if [[ $MODE == normal ]] && ! sway -C -c "$CFG" >/dev/null 2>&1; then
+# Sway refuse de démarrer si le pilote propriétaire NVIDIA est chargé,
+# sauf avec --unsupported-gpu. `sway -C` initialise aussi le serveur
+# (1.10+) : il lui faut donc le même drapeau, sinon la validation échoue
+# à tort et on bascule systématiquement en fallback.
+SWAY_ARGS=()
+[[ -d /sys/module/nvidia ]] && SWAY_ARGS+=(--unsupported-gpu)
+
+LOGDIR=${XDG_STATE_HOME:-$HOME/.local/state}/sway
+mkdir -p "$LOGDIR"
+if [[ $MODE == normal ]] && ! sway "${SWAY_ARGS[@]}" -C -c "$CFG" >"$LOGDIR/sway-check.log" 2>&1; then
   echo "⚠ config principale invalide (sway -C) → démarrage en FALLBACK" >&2
+  echo "  détails : $LOGDIR/sway-check.log" >&2
   MODE=fallback
 fi
 [[ $MODE == fallback ]] && CFG=$FALLBACK
@@ -86,24 +96,23 @@ if (( CHECK )); then
   echo "config            : $CFG ($MODE)"
   echo "WLR_DRM_DEVICES   : ${WLR_DRM_DEVICES:-<non défini>}"
   echo "intel / nvidia    : ${intel:-?} / ${nvidia:-?}"
-  sway -C -c "$CFG" && echo "sway -C           : OK"
+  sway "${SWAY_ARGS[@]}" -C -c "$CFG" && echo "sway -C           : OK"
   exit 0
 fi
 
 # ── Journal rotatif ────────────────────────────────────────────────────
-LOGDIR=${XDG_STATE_HOME:-$HOME/.local/state}/sway
-mkdir -p "$LOGDIR"
 for i in 4 3 2 1; do [[ -f $LOGDIR/sway.log.$i ]] && mv -f "$LOGDIR/sway.log.$i" "$LOGDIR/sway.log.$((i + 1))"; done
 [[ -f $LOGDIR/sway.log ]] && mv -f "$LOGDIR/sway.log" "$LOGDIR/sway.log.1"
 
 # Lancement. Garde-fou multi-GPU : si Sway échoue en moins de 15 s avec
 # Intel+NVIDIA (ex. souci de pilote NVIDIA), relance sur l'Intel seul.
+rm -f "$LOGDIR/sway.multigpu-fail.log"   # ancien échec : ne pas fausser gpu-check
 start=$SECONDS rc=0
-sway -c "$CFG" >"$LOGDIR/sway.log" 2>&1 || rc=$?
+sway "${SWAY_ARGS[@]}" -c "$CFG" >"$LOGDIR/sway.log" 2>&1 || rc=$?
 if (( rc != 0 && SECONDS - start < 15 )) && [[ ${WLR_DRM_DEVICES:-} == *:* ]]; then
   echo "⚠ Sway a échoué (code $rc) en multi-GPU → relance sur l'iGPU seul ($intel)" >&2
   mv -f "$LOGDIR/sway.log" "$LOGDIR/sway.multigpu-fail.log"
   export WLR_DRM_DEVICES=$intel
-  rc=0; sway -c "$CFG" >"$LOGDIR/sway.log" 2>&1 || rc=$?
+  rc=0; sway "${SWAY_ARGS[@]}" -c "$CFG" >"$LOGDIR/sway.log" 2>&1 || rc=$?
 fi
 exit "$rc"

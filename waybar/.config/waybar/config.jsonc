@@ -142,7 +142,7 @@
       "format-charging": "󰂄 {capacity}%",
       "format-plugged": "󰚥 {capacity}%",
       "format-icons": ["󰁺", "󰁼", "󰁾", "󰂀", "󰁹"],
-      "tooltip-format": "{timeTo}\n{power} W — santé {health}%"
+      "tooltip-format": "{timeTo}\n{power} W — santé {health}%\nlimite de charge : 80 % (durabilité)"
     },
     "idle_inhibitor": {
       "format": "{icon}",
@@ -191,14 +191,14 @@
     },
     "cpu": {
       "interval": 3,
-      "format": "󰍛 {usage:>2}% ({load:.2f})",
+      "format": "󰍛 {usage:>3}% ({load:.2f})",
       "states": { "warning": 70, "critical": 90 },
       "tooltip": true,
       "on-click": "foot --app-id=floating-term btop"
     },
     "memory": {
       "interval": 5,
-      "format": "󰘚 {percentage}% {used:.1f}G",
+      "format": "󰘚 {percentage:>3}% {used:>4.1f}G",
       "tooltip-format": "RAM {used:.1f}/{total:.1f} Gio\nswap {swapUsed:.1f}/{swapTotal:.1f} Gio",
       "states": { "warning": 75, "critical": 90 }
     },
@@ -207,8 +207,8 @@
       "input-filename": "temp1_input",
       "critical-threshold": 90,
       "interval": 3,
-      "format": "󰔏 {temperatureC}°",
-      "format-critical": "󱃂 {temperatureC}°",
+      "format": "󰔏 {temperatureC:>3}°",
+      "format-critical": "󱃂 {temperatureC:>3}°",
       "tooltip-format": "CPU (package) : {temperatureC} °C"
     },
     "custom/gpu": {
@@ -225,12 +225,12 @@
     "disk": {
       "interval": 60,
       "path": "/",
-      "format": "󰋊 {percentage_used}%",
+      "format": "󰋊 {percentage_used:>3}%",
       "tooltip-format": "/ : {used} / {total} ({free} libres)"
     },
     "network#speed": {
       "interval": 2,
-      "format": "󰇚 {bandwidthDownBytes} 󰕒 {bandwidthUpBytes}",
+      "format": "󰇚 {bandwidthDownBytes:>9} 󰕒 {bandwidthUpBytes:>9}",
       "format-disconnected": "󰇚 — 󰕒 —",
       "tooltip-format": "{ifname} : débit sur 2 s",
       "on-click": "foot --app-id=floating-term ~/.local/bin/netwatch"

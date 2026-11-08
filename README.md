@@ -18,14 +18,14 @@ git clone <ce dépôt> ~/dotfiles && cd ~/dotfiles
 ./install.sh --migrate-network  # + bascule wlo1 ifupdown → NetworkManager (garde-fou)
 ```
 
-Ensuite, connecte-toi sur **tty1** : Sway démarre tout seul. Pour annuler ce démarrage automatique : `touch ~/.config/sway/no-autostart`.
+Ensuite, `sudo system/phase10-greetd-root.sh` installe l'écran de connexion **greetd + tuigreet** (thème glass // SOC) : au démarrage, connecte-toi dessus et Sway se lance. Console de secours : `Ctrl+Alt+F2`…`F6`.
 
 | Besoin | Commande |
 |---|---|
 | Aide raccourcis | `Super+F1` ou `keys-help --print` |
 | Sway de secours | `sway -c ~/.config/sway/config.fallback` (ou `touch ~/.config/sway/use-fallback`) |
 | Retirer la config | `./uninstall.sh` |
-| Retour système | `./rollback.sh status` · `network` · `sources` · `packages` |
+| Retour système | `./rollback.sh status` · `network` · `sources` · `nvidia` · `boot` · `packages` |
 
 ## Arborescence
 
@@ -37,7 +37,7 @@ systemd-user/   services de session (sway-session.target)
 scripts/        ~/.local/bin/* + ~/.local/lib/soc/ui.sh
 soc/            ~/.config/soc/hooks.d (extension soc-dashboard → ssh-sentinel)
 bash/ starship/ tmux/ nvim/
-system/         scripts root (apt sûr, migration réseau, rollback) + listes de paquets
+system/         scripts root (apt sûr, migration réseau, NVIDIA, thème GRUB/TTY, rollback) + listes de paquets
 docs/RAPPORT.md documentation complète
 ```
 

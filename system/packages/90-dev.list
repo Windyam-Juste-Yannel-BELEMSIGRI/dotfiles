@@ -1,0 +1,44 @@
+# Phase 12 — outils de travail (SOC analyst · data engineer · ENSA Big Data)
+# Tout vient de Debian 13 officiel, sauf `code` (dépôt Microsoft, épinglé).
+# Python et Node.js sont gérés côté utilisateur (uv, fnm) par `dev-setup`.
+
+# ── C (C_Projects, cours) ──
+build-essential
+gdb
+valgrind
+
+# ── Python : en-têtes pour compiler les rares wheels absentes ──
+python3-dev
+
+# ── LaTeX (rapports ENSA, writeups CTF) — sélection, pas texlive-full (~6 Go) ──
+texlive-latex-recommended
+texlive-latex-extra
+texlive-fonts-recommended
+texlive-lang-french
+texlive-xetex
+texlive-science
+texlive-bibtex-extra
+biber
+latexmk
+python3-pygments
+
+# ── Données / SQL ──
+sqlite3
+pgcli
+
+# ── Conteneurs (PostgreSQL de ssh-sentinel, Oracle Free, Spark…) ──
+docker.io
+docker-cli
+docker-compose
+docker-buildx
+
+# ── SOC : analyse de trafic (CyberOps, pcap des labs THM/HTB) ──
+wireshark
+tshark
+
+# ── Trousseau de secrets (comptes GitHub/Microsoft dans VS Code, sans fichier en clair) ──
+gnome-keyring
+libsecret-tools
+
+# ── Éditeur (dépôt packages.microsoft.com) ──
+code

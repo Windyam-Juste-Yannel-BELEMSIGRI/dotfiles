@@ -38,7 +38,7 @@ for a in "$@"; do
 done
 
 STOW_PKGS=(sway waybar foot fuzzel mako swaylock swayidle kanshi swappy cava
-           systemd-user scripts soc gtk bash starship tmux nvim)
+           systemd-user scripts soc gtk bash starship tmux nvim vscode zathura imv)
 NF_VERSION=v3.5.1
 NF_URL=https://github.com/ryanoasis/nerd-fonts/releases/download/$NF_VERSION
 BACKUP=$HOME/.config-backup-$(date +%Y%m%d)
@@ -167,6 +167,6 @@ if [[ -n ${SWAYSOCK:-} ]] && (( ! DRY )); then
   swaymsg reload >/dev/null && ok "sway rechargé"
   systemctl --user restart sway-session.target && ok "services de session (re)démarrés"
 else
-  info "Sway non lancé : connectez-vous sur tty1 (démarrage automatique)"
+  info "Sway non lancé : connectez-vous via greetd (system/phase10-greetd-root.sh)"
 fi
 ok "terminé. Documentation : $DOT/docs/RAPPORT.md"

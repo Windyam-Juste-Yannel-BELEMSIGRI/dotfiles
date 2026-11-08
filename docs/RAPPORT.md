@@ -8,6 +8,8 @@
 | Date | 2026-11-08 |
 | Dépôt | `~/dotfiles` (git local, aucun push) |
 
+> Suite : outils de travail, applications et batterie → [`RAPPORT-OUTILS.md`](RAPPORT-OUTILS.md)
+
 ---
 
 ## 1. Vue d'ensemble
@@ -29,8 +31,9 @@
 | Session | `sway-session.target` systemd : 9 démons graphiques supervisés, avec redémarrage automatique. |
 | Interface | 2 barres waybar (principale + télémétrie SOC), fuzzel, mako, swaylock avec effet, fond d'écran généré. Fenêtres toujours espacées (10 px entre elles, 16 px aux bords), gestes 3 et 4 doigts. |
 | Scripts | 23 scripts Bash à l'identité commune. 35 fichiers analysés par shellcheck, **0 avertissement**. |
-| Démarrage | Sway lancé automatiquement sur tty1, avec garde (pas en SSH, pas sur les autres TTY) et bascule automatique sur la config de secours si la config principale est invalide. |
+| Démarrage | Écran de connexion greetd + tuigreet (vt7, thème glass // SOC) qui lance `sway-launch`, avec bascule automatique sur la config de secours si la config principale est invalide. |
 | NVIDIA | Pilote **550.163.01** installé (DKMS, modeset activé). Sway reste sur l'Intel, avec repli automatique. **Actif après redémarrage** (section 9). |
+| GRUB / TTY | Thème GRUB « glass // SOC » (fond `#1c1c1e`, JetBrains Mono, sélection sarcelle) et TTY à la palette de foot avec Terminus Bold 16×32. `/etc/default/grub` non modifié (fichier dédié dans `grub.d`). Détails en section 5. |
 
 ### Identité visuelle
 
@@ -60,10 +63,11 @@ Tes dotfiles d'origine utilisaient un **verre dépoli clair** (barre flottante b
 ~/dotfiles
 ├── install.sh            déploiement complet (idempotent, --dry-run)
 ├── uninstall.sh          retrait de la configuration utilisateur
-├── rollback.sh           retour système : status | user | network | sources | nvidia | packages
+├── rollback.sh           retour système : status | user | network | sources | nvidia | boot | packages
 ├── README.md
 ├── .shellcheckrc         source-path=SCRIPTDIR (résolution des `source`)
 ├── docs/RAPPORT.md       ce document
+├── docs/RAPPORT-OUTILS.md outils de travail et applications (phases 11-13)
 ├── system/               scripts ROOT (jamais stowés)
 │   ├── apt-install.sh            installe des listes ; simulation + refus suppressions/versions
 │   ├── phase1-root.sh            sauvegarde /etc/apt+/etc/network, ajoute contrib, lot 10
@@ -71,6 +75,9 @@ Tes dotfiles d'origine utilisaient un **verre dépoli clair** (barre flottante b
 │   ├── network-rollback-root.sh  retour wlo1 → ifupdown
 │   ├── phase8-nvidia-root.sh     non-free + pilote NVIDIA + modeset + initramfs
 │   ├── nvidia-rollback-root.sh   retrait du pilote NVIDIA (simulation par défaut)
+│   ├── phase9-boot-theme-root.sh thème GRUB glass-soc + police/palette TTY
+│   ├── boot-theme-rollback-root.sh retrait du thème GRUB / TTY
+│   ├── boot-theme/               theme.txt + PNG GRUB, grub.d/90-glass-soc.cfg, vt-palette.txt, issue
 │   ├── phase-root.sh             lots 30/40/50/70 + réglages (PPD, groupe journal)
 │   └── packages/{10-base,20-network,30-audio-power,40-theme,50-cli,70-soc-tools,80-nvidia}.list
 ├── sway/.config/sway/
@@ -111,6 +118,9 @@ Tes dotfiles d'origine utilisaient un **verre dépoli clair** (barre flottante b
 | `/etc/NetworkManager/system-connections/wifi-wlo1-migrated.nmconnection` | profil Wi-Fi (root, 600) | créé |
 | `/var/backups/setup-sway/` | sauvegardes root (`/etc/apt`, `/etc/network`, script de bascule) | créé (700) |
 | `/etc/group` | `windyam_yannel` ajouté à `systemd-journal` | modifié (`usermod`) |
+| `/etc/default/grub.d/90-glass-soc.cfg`, `/boot/grub/themes/glass-soc/` | thème GRUB + palette TTY | créés (source : `~/dotfiles/system/boot-theme/`) |
+| `/etc/default/console-setup` | police TTY Terminus Bold 16×32 | modifié |
+| `/etc/issue` | écran de connexion TTY centré | remplacé (original : `/var/backups/setup-sway/issue.orig`) |
 
 ### Services
 
@@ -247,18 +257,23 @@ Dépendances notables : `dkms`, `gcc-14`, `xserver-xorg-core` + `xserver-xorg-vi
 | `/etc/network/interfaces` | ifupdown | bloc `allow-hotplug wlo1` / `iface wlo1` commenté (`#setup-sway# `) | `/var/backups/setup-sway/20261108-192422-network/interfaces.orig` |
 | `/etc/NetworkManager/system-connections/wifi-wlo1-migrated.nmconnection` | profil Wi-Fi | créé (root:root 600, PSK reprise sans affichage) | — (supprimable) |
 | `/etc/modprobe.d/nvidia-drm-setup-sway.conf` | KMS NVIDIA | créé : `options nvidia-drm modeset=1 fbdev=1` | `/var/backups/setup-sway/*-nvidia/etc-apt-modprobe.tar.gz` ; retrait via `rollback.sh nvidia` |
+| `/etc/default/grub.d/90-glass-soc.cfg` | GRUB | créé : `GRUB_THEME`, `GRUB_GFXMODE=2560x1600x32,auto`, `GRUB_TERMINAL_OUTPUT=gfxterm`, palette `vt.default_red/grn/blu` ajoutée à la ligne noyau | `/var/backups/setup-sway/20261108-204117-boot-theme/` ; retrait via `rollback.sh boot` |
+| `/boot/grub/themes/glass-soc/` | thème GRUB | créé : `theme.txt`, 18 PNG (cadre du menu, sélection), 4 polices `.pf2` générées depuis JetBrains Mono | supprimé par `rollback.sh boot` |
+| `/boot/grub/grub.cfg` | menu GRUB | régénéré par `update-grub` (après `grub-script-check` sur une copie) | `/var/backups/setup-sway/20261108-204117-boot-theme/grub.cfg.orig` |
+| `/etc/default/console-setup` | police des TTY | `FONTFACE="Fixed"` → `"TerminusBold"`, `FONTSIZE="8x16"` → `"16x32"` | `/var/backups/setup-sway/20261108-204117-boot-theme/etc-default.tar.gz` |
+| `/etc/issue` | bannière de connexion TTY | remplacé par une version centrée (séquences ANSI) | `/var/backups/setup-sway/issue.orig` ; restauré par `rollback.sh boot` |
 | `/etc/group` | groupes | `systemd-journal` += `windyam_yannel` | `sudo gpasswd -d windyam_yannel systemd-journal` pour annuler |
-| `/boot/initrd.img-6.12.115+deb13.1-amd64` | initramfs | régénéré par Debian (trigger fuse3), puis par l'installation NVIDIA (liste noire de nouveau + modeset) | régénérable : `sudo update-initramfs -u` |
+| `/boot/initrd.img-6.12.115+deb13.1-amd64` | initramfs | régénéré par Debian (trigger fuse3), puis par l'installation NVIDIA (liste noire de nouveau + modeset), puis après le changement de police console | régénérable : `sudo update-initramfs -u` |
 | `/lib/modules/6.12.115+deb13.1-amd64/updates/dkms/nvidia-current*.ko.xz` | modules NVIDIA | construits par DKMS | retirés par `rollback.sh nvidia` |
 
-Ni GRUB, ni l'EFI, ni `/etc/fstab`, ni les partitions, ni Windows n'ont été touchés (`/etc/default/grub` et `grub.cfg` sont toujours datés de l'installation, 18:24).
+Ni l'EFI, ni `/etc/fstab`, ni les partitions, ni Windows n'ont été touchés. `/etc/default/grub` est intact : le thème GRUB passe par un fichier dédié dans `/etc/default/grub.d/` et seul `grub.cfg` a été régénéré (20:41) ; l'entrée Windows Boot Manager y est toujours détectée.
 
 ### Fichiers utilisateur
 
 | Chemin | Rôle | Changement | Sauvegarde |
 |---|---|---|---|
 | `~/.bashrc` | shell interactif | +1 ligne : `[ -r ~/.config/bash/init.sh ] && . … # dotfiles glass-soc` | `~/.config-backup-20261108/.bashrc.orig` |
-| `~/.bash_profile` | shell de connexion | créé (lien stow) ; source `~/.profile` puis démarrage automatique de Sway | n'existait pas |
+| `~/.bash_profile` | shell de connexion | créé (lien stow) ; source `~/.profile` (le démarrage de Sway est passé à greetd) | n'existait pas |
 | `~/.config/cava/` | cava | remplacé par le paquet stow `cava` | `~/.config-backup-20261108/.config/cava/` |
 | `~/.config/**`, `~/.local/bin/**` | toute la configuration | liens stow créés (aucun fichier existant écrasé) | — |
 | `~/.local/share/dbus-1/services/org.freedesktop.Notifications.service` | activation D-Bus de mako | créé (lien) | — |
@@ -320,7 +335,7 @@ Notifications en haut à droite, verre sombre, regroupées par application, 50 d
 
 ### Shell (bash + starship)
 
-- `~/.bash_profile` source `~/.profile` (celui de Debian charge `~/.bashrc` et ajoute `~/.local/bin`), puis lance la garde de démarrage automatique de Sway.
+- `~/.bash_profile` source `~/.profile` (celui de Debian charge `~/.bashrc` et ajoute `~/.local/bin`). Sway est lancé par greetd, plus par ce fichier.
 - `~/.bashrc` (Debian) + `~/.config/bash/init.sh`, qui charge `10-env` (PATH, historique de 50 000 entrées horodatées, `HISTCONTROL=ignoreboth` : une commande précédée d'une espace n'est pas enregistrée, couleurs fzf), `20-aliases`, `30-tools` (bash-completion, fzf Ctrl+R / Ctrl+T / Alt+C, zoxide, `venv`, `mkcd`, `extract`), `40-prompt` (starship, ou un prompt maison s'il est absent) et `50-sitrep`.
 - **Alias :** sous Debian, `fd` s'appelle `fdfind` et `bat` s'appelle `batcat`, d'où des alias. `ls`/`ll`/`la`/`lt` utilisent eza. `ports`, `conns`, `lip`, `myip`, `authlog`, `sshfails`, `failed`, `jerr`, `upd`, `swaycheck`, `keys`, `dots`.
 - **starship :** deux lignes `╭─`/`╰─`, dossier, git, venv Python, durée des commandes > 2 s, code de retour, heure à droite. Hôte en rouge **uniquement en SSH**.
@@ -337,6 +352,34 @@ GTK 3/4 : `settings.ini` (Adwaita-dark, Papirus-Dark, Bibata) + `gsettings` (`co
 ### kanshi
 
 Profil `portable` (eDP-1 seul) et profil `hdmi` (externe à droite). Le nom exact de la sortie externe se lit avec `swaymsg -t get_outputs` une fois l'écran branché. Ensuite : `systemctl --user restart kanshi`.
+
+### GRUB et TTY (`~/dotfiles/system/boot-theme/`)
+
+Installés par `sudo system/phase9-boot-theme-root.sh` (accepte `--dry-run`), retirés par `./rollback.sh boot`.
+
+**GRUB** (thème `glass-soc`, sources dans `system/boot-theme/grub/glass-soc/`) :
+
+| Élément | Rendu |
+|---|---|
+| Fond | uni `#1c1c1e` (pas d'image) |
+| Composition | **centrée** : titre à 26 % de la hauteur, menu sur 32→68 % en largeur et 37→61 % en hauteur, compte à rebours à 64 %, aide à 90 % |
+| Titre | « glass // SOC » en JetBrains Mono Bold 48, sarcelle `#7dd3c0`, sous-titre « sélection du système » en `#a8a8ae`, centrés |
+| Menu | panneau `#222225` bordé de 2 px `#3a3a40` (le verre sombre de waybar), entrées en JetBrains Mono 32 `#a8a8ae`. Le panneau est centré à l'écran ; le texte des entrées reste aligné à gauche **dans** le panneau, car GRUB n'a pas d'option pour centrer le texte d'une entrée |
+| Entrée sélectionnée | fond `#2a2a2e` + barre d'accent de 6 px à gauche, texte gras sarcelle (comme la fenêtre active dans Sway) |
+| Compte à rebours | barre de 6 px sarcelle sur `#2a2a2e` + « démarrage automatique dans N s » |
+| Aide | rappel des touches en bas, en `#4a4a50` |
+
+- Polices : `grub-mkfont` convertit JetBrains Mono (paquet `fonts-jetbrains-mono`) en `.pf2` à l'installation, limitées au latin, aux flèches et aux caractères de dessin de cadres. Noms GRUB : `JetBrains Mono Regular 24/32`, `JetBrains Mono Bold 32/48`.
+- Mise en page en pourcentages : si le firmware n'accepte pas 2560×1600, GRUB prend le mode `auto` et le thème reste centré (avec un texte plus gros).
+- Sécurité : le script génère `grub.cfg` dans un fichier temporaire, le valide (`grub-script-check`, présence du thème et de la palette) et **s'arrête en retirant sa config** si un contrôle échoue ; c'est seulement ensuite qu'il lance `update-grub`. Un thème défectueux ne bloque jamais le démarrage : GRUB revient au menu texte. Secure Boot est désactivé, donc il n'y a pas de contrainte de signature.
+
+**TTY :**
+
+- **Couleurs :** les 16 couleurs de la console sont exactement celles de foot (`regular0-7`, `bright0-7`). Elles passent par les paramètres noyau `vt.default_red/grn/blu`, donc dès le démarrage. Elles sont aussi appliquées tout de suite aux TTY ouverts avec `setvtrgb` (`system/boot-theme/vt-palette.txt`).
+- **Police :** la console n'affiche que des polices bitmap PSF, donc JetBrains Mono ne peut pas y être utilisée. La plus proche est **Terminus Bold 16×32** (`Lat15-TerminusBold32x16`), lisible en 2560×1600 (160 colonnes × 50 lignes). Elle est réglée dans `/etc/default/console-setup` et l'initramfs est régénéré.
+- **Écran de connexion centré** (`/etc/issue`, source `system/boot-theme/issue`) : agetty affiche ce fichier avant l'invite. Il efface l'écran puis place, par des séquences ANSI de position, « glass // SOC » en sarcelle (rangée 21), « Debian GNU/Linux 13 · ttyN » (rangée 23), un filet `─` (rangée 24), puis l'invite `yannel-asus login:` au centre (rangée 27, colonne 71). Les positions sont calculées pour une grille de 160×50 (Terminus 16×32 sur 2560×1600). Le fichier n'a pas de saut de ligne final, sinon l'invite repartirait à gauche. L'original est dans `/var/backups/setup-sway/issue.orig`.
+- **Limite :** une console Linux est une grille de caractères qui commence en haut à gauche. Seul l'écran de connexion peut être centré. `Password:` (affiché par `login`) apparaît à gauche de la ligne suivante, et après la connexion le shell s'affiche normalement, depuis le haut à gauche. (Remplacé depuis par greetd + tuigreet, voir plus bas.)
+- Plymouth (écran de démarrage graphique) n'a volontairement pas été installé.
 
 ---
 
@@ -632,7 +675,7 @@ sudo apt install git            # seul prérequis
 git clone <dépôt> ~/dotfiles && cd ~/dotfiles
 ./install.sh --dry-run          # lire la simulation
 ./install.sh --with-soc-tools --migrate-network
-# se déconnecter puis se reconnecter sur tty1 → Sway démarre
+sudo system/phase10-greetd-root.sh   # écran de connexion → Sway au redémarrage
 ```
 
 `install.sh` : vérifie Debian 13 → (sudo) ajoute contrib, installe les lots 10/20/30/40/50(/70) avec simulation préalable → sauvegarde les fichiers en conflit → stow → hook `.bashrc` → Nerd Font avec vérification SHA-256 → fond d'écran → `daemon-reload` → `sway -C` + shellcheck → rechargement à chaud si Sway tourne. Le script est **relançable** : une deuxième exécution n'installe rien de plus (vérifié, « 0 newly installed »).
@@ -648,14 +691,14 @@ cd ~/dotfiles && git pull && ./install.sh --no-packages
 ### Retour à un Sway minimal
 
 - Ponctuellement : depuis un TTY, `sway -c ~/.config/sway/config.fallback` (ou `sway-launch --fallback`).
-- Durablement : `touch ~/.config/sway/use-fallback`, puis reconnexion sur tty1.
+- Durablement : `touch ~/.config/sway/use-fallback`, puis reconnexion via greetd.
 - C'est automatique si `sway -C` échoue sur la config principale (vérifié avec une config volontairement cassée).
 - Sans aucune config : `./uninstall.sh`, et Sway utilise `/etc/sway/config`.
-- Accès texte : `Ctrl+Alt+F2`…`F6`. Le démarrage automatique ne concerne que tty1.
+- Accès texte : `Ctrl+Alt+F1`…`F6` (greetd est sur `Ctrl+Alt+F7`).
 
 ### Annuler le démarrage automatique
 
-`touch ~/.config/sway/no-autostart`, ou `Ctrl+C` pendant les 2 secondes affichées sur tty1.
+`sudo systemctl disable greetd` : au prochain démarrage, connexion texte sur tty1 et `sway-launch` à la main.
 
 ### Désinstallation / rollback
 
@@ -665,6 +708,7 @@ cd ~/dotfiles && git pull && ./install.sh --no-packages
 | `./rollback.sh status` | paquets ajoutés depuis l'état initial, sauvegardes root, état du réseau |
 | `./rollback.sh network` | rend `wlo1` à ifupdown |
 | `./rollback.sh nvidia [--apply]` | retire le pilote NVIDIA (simulation par défaut) |
+| `./rollback.sh boot` | retire le thème GRUB et le style des TTY (supprime `grub.d/90-glass-soc.cfg` et le thème, restaure `console-setup`, `update-grub`, initramfs) |
 | `./rollback.sh sources` | restaure `/etc/apt/sources.list` d'origine (sans contrib ni non-free ; à faire **après** `nvidia --apply`) |
 | `./rollback.sh packages [--apply]` | **simule** la purge des 68 paquets marqués manuels depuis l'état initial (NetworkManager exclu tant que le réseau n'est pas rendu à ifupdown), avec refus si un paquet critique est visé |
 
@@ -694,6 +738,10 @@ cd ~/dotfiles && git pull && ./install.sh --no-packages
 | Le Wi-Fi ne revient pas | profil NM | `nmcli connection up wifi-wlo1-migrated` ; `nmtui` ; sinon `./rollback.sh network` depuis un TTY |
 | `systemd-analyze verify` signale un cycle `foot-server.socket` | artefact de verify sur l'unité Debian | sans effet à l'exécution (`sockets.target` est déjà actif) |
 | « ACPI BIOS Error (bug) » dans le journal noyau | bugs du firmware ASUS | bénins, ignorables (comptés dans les « erreurs noyau » du dashboard) |
+| Menu GRUB en texte brut / thème absent | thème illisible ou mode graphique refusé par le firmware | le démarrage fonctionne quand même ; `sudo update-grub` et lire la ligne « Found theme » ; sinon `./rollback.sh boot` |
+| Menu GRUB minuscule ou énorme | résolution GOP différente de 2560×1600 | modifier `GRUB_GFXMODE` dans `system/boot-theme/grub.d/90-glass-soc.cfg`, relancer `phase9-boot-theme-root.sh` |
+| Écran de connexion TTY décalé | grille différente de 160×50 (autre police ou résolution) | `stty size` sur le TTY, puis recalculer les positions dans `system/boot-theme/issue` |
+| TTY aux couleurs Debian | ligne noyau sans `vt.default_*` | `cat /proc/cmdline` ; `sudo setvtrgb ~/dotfiles/system/boot-theme/vt-palette.txt` |
 | systemd « Tainted: local-hwclock » | horloge matérielle en heure locale (dual boot Windows) | normal en dual boot, non modifié |
 
 ### Non testé (matériel ou action humaine nécessaire)
@@ -709,6 +757,7 @@ cd ~/dotfiles && git pull && ./install.sh --no-packages
 - Démarrage automatique réel sur tty1 : la logique a été vérifiée par simulation dans 5 scénarios.
 - **Chargement réel du pilote NVIDIA** et HDMI via la dGPU : c'est pour après le redémarrage (`gpu-check`).
 - Gestes du touchpad et taps sur les entrées fuzzel : à confirmer au doigt (testé par commandes).
+- **Rendu réel du thème GRUB**, de l'écran de connexion centré et de la police Terminus au démarrage : la configuration a été validée par `grub-script-check`, mais l'affichage ne se voit qu'au redémarrage.
 
 ### Limites connues
 
@@ -794,3 +843,24 @@ Ce journal reproduit tel quel `~/.local/state/setup-sway/journal.md`.
 - NVIDIA (accord explicite de l'utilisateur) : simulation sans root (cache apt privé) → 87 paquets, 0 suppression. `system/phase8-nvidia-root.sh` : sauvegarde /var/backups/setup-sway/20261108-2009*-nvidia et 20261108-201107-nvidia ; `non-free` ajouté à /etc/apt/sources.list ; installé linux-headers-amd64 6.12.115-2, nvidia-driver / nvidia-kernel-dkms / nvidia-smi / nvidia-suspend-common / nvidia-vulkan-icd / libcuda1 / libnvidia-encode1 / libnvidia-allocator1 / firmware-nvidia-gsp 550.163.01-2, libnvidia-egl-gbm1 1.1.2.1-1, libnvidia-egl-wayland1 1:1.1.18-1 ; DKMS : nvidia-current/550.163.01 construit et signé (clé MOK DKMS auto-générée, inutile tant que Secure Boot est désactivé) ; nouveau en liste noire (paquet) ; /etc/modprobe.d/nvidia-drm-setup-sway.conf créé (`options nvidia-drm modeset=1 fbdev=1`, absent par défaut) ; initramfs régénéré (contient blacklist + modeset, sans nouveau.ko). 1er passage arrêté par mon test `modinfo nvidia` (module nommé nvidia-current) → corrigé et relancé (idempotent).
 - sway-launch : repli automatique sur l'iGPU seul si Sway échoue < 15 s en multi-GPU. Nouveau script gpu-check. rollback.sh nvidia.
 - REDÉMARRAGE requis pour charger le pilote (non effectué : à faire par l'utilisateur).
+
+### 2026-11-08 — GRUB et TTY aux couleurs de Sway
+- Demande : faire correspondre GRUB et les TTY au thème Sway. État relevé : UEFI, Secure Boot désactivé, GRUB 2.12-9+deb13u2, `/etc/default/grub.d/` vide, console `Fixed 8x16`, écran 2560×1600, `/boot` sur la racine ext4.
+- Créé dans le dépôt : `system/boot-theme/` (thème GRUB `glass-soc` : `theme.txt` + 18 PNG générés avec ImageMagick ; `grub.d/90-glass-soc.cfg` ; `vt-palette.txt`), `system/phase9-boot-theme-root.sh`, `system/boot-theme-rollback-root.sh`, commande `./rollback.sh boot`. shellcheck : 0 avertissement.
+- Exécuté (mot de passe saisi par l'utilisateur via `sudo-askpass`) : sauvegarde `/var/backups/setup-sway/20261108-204117-boot-theme/` ; thème + 4 polices `.pf2` dans `/boot/grub/themes/glass-soc` ; grub.cfg temporaire validé (syntaxe, `set theme=`, `vt.default_red=`) puis `update-grub` (« Found theme », 2 noyaux, Windows Boot Manager, UEFI Firmware Settings) ; console-setup → TerminusBold 16x32 ; `setvtrgb` OK ; initramfs régénéré.
+- Reste : vérifier l'affichage de GRUB et des TTY au prochain redémarrage.
+
+### 2026-11-08 — Centrage de GRUB et de l'écran de connexion TTY
+- Demande : textes centrés à l'écran au lieu d'être en haut à gauche (GRUB et TTY).
+- GRUB : composition resserrée et centrée (titre 26 %, menu 36 % de large × 24 % de haut, centré à 32 %/37 %, compte à rebours 64 %). Vérifiée sur une maquette ImageMagick en 2560×1600 (l'entrée la plus longue, « Windows Boot Manager (on /dev/nvme0n1p1) », tient dans le panneau). Le texte des entrées reste aligné à gauche dans le panneau : GRUB ne sait pas le centrer.
+- TTY : nouveau `system/boot-theme/issue` (bannière + invite de connexion centrées par positionnement ANSI, grille 160×50), installé dans `/etc/issue` par `phase9-boot-theme-root.sh` ; original sauvegardé une seule fois dans `/var/backups/setup-sway/issue.orig` et restauré par `boot-theme-rollback-root.sh`. Rendu vérifié avec `agetty --show-issue` dans un pseudo-terminal (séquences conservées, `\l` développé, pas de saut de ligne final).
+- Réexécuté (mot de passe saisi par l'utilisateur) : sauvegarde `/var/backups/setup-sway/20261108-205039-boot-theme/`, grub.cfg revalidé puis installé, `/etc/issue` et thème identiques au dépôt (`cmp`/`diff`). shellcheck : 0 avertissement.
+
+### 2026-11-08 — Écran de connexion greetd + tuigreet, souris Sway
+- Demande : tout centrer à la connexion (y compris `Password:` et les messages qui suivent), garder le thème ; le curseur de la souris ne doit plus sauter au centre en changeant de bureau.
+- Souris : `sway/.config/sway/config.d/15-mouse.conf` → `mouse_warping none` (rechargé à chaud).
+- Connexion : `system/phase10-greetd-root.sh` installe greetd 0.10.3 + tuigreet 0.9.1 (apt bloqué par `policy-rc.d` pour ne pas démarrer greetd pendant la session en cours), `/etc/greetd/config.toml` ← `system/boot-theme/greetd/config.toml` (vt7, bannière « glass // SOC · Debian GNU/Linux 13 », heure, nom mémorisé, astérisques, couleurs cyan/gris du thème, `--cmd sway-launch`). Original : `/etc/greetd/config.toml.debian`. Tout (invite, mot de passe, erreurs) est centré par tuigreet.
+- TTY 1–6 (secours) : `/usr/local/sbin/login-centered` + `getty@.service.d/centered-login.conf` placent `Password:` sous `login:` ; `LOGIN_RETRIES 1` (écran recentré après un échec) ; `pam_motd` commenté dans `/etc/pam.d/login` (sauvegarde `login.bak`) ; `~/.hushlogin`. « Login incorrect » reste à gauche (écrit par `login`, la console Linux n'a pas de marge gauche).
+- Supprimé : démarrage automatique de Sway dans `~/.bash_profile` (repris par greetd), drapeau `no-autostart` (.gitignore).
+- Rollback : `./rollback.sh boot` désactive greetd, restaure sa config et retire les réglages TTY.
+

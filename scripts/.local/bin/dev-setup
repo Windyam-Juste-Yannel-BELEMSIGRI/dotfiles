@@ -1,0 +1,136 @@
+#!/usr/bin/env bash
+# ╭──────────────────────────────────────────────────────────────────────╮
+# │ dev-setup — outils de travail, partie utilisateur (sans sudo)        │
+# │ Usage : dev-setup [--check | --remove | -h]                          │
+# │   (aucun)  uv (via pipx), Node.js LTS (via fnm), extensions VS Code, │
+# │            trousseau libsecret, applications par défaut ; idempotent │
+# │   --check  versions installées et état des groupes                    │
+# │   --remove retire uv, fnm et Node (pas VS Code ni ses extensions)     │
+# │ Prérequis : sudo phase12-devtools-root.sh / phase13-apps-root.sh     │
+# ╰──────────────────────────────────────────────────────────────────────╯
+set -euo pipefail
+# shellcheck source=../lib/soc/ui.sh
+source "$(dirname "$(readlink -f "$0")")/../lib/soc/ui.sh"
+usage() { sed -n '3,9p' "$0" | sed 's/^# │ \{0,1\}//; s/ *│$//'; }
+
+FNM_DIR=${XDG_DATA_HOME:-$HOME/.local/share}/fnm
+FNM_URL=https://github.com/Schniz/fnm/releases/latest/download/fnm-linux.zip
+EXT_LIST=${XDG_CONFIG_HOME:-$HOME/.config}/Code/User/extensions.list
+ARGV=$HOME/.vscode/argv.json
+export PATH=$HOME/.local/bin:$PATH
+
+# ver CMD : première ligne de `CMD --version`, ou "absent"
+ver() { command -v "$1" >/dev/null && { "$1" --version 2>&1 | head -1; } || echo "${C_RED}absent${C_RST}"; }
+
+check() {
+  box_title "dev-setup · état" "$(date '+%F %T')"
+  section "OUTILS"
+  local c
+  for c in code python3 uv fnm node npm gcc gdb latexmk xelatex docker tshark psql pgcli sqlite3 \
+           chromium vlc zathura imv-wayland libreoffice keepassxc VBoxManage 7z; do
+    printf '  %s%-9s%s %s\n' "$C_MUTED" "$c" "$C_RST" "$(ver "$c")"
+  done
+  section "GROUPES (actifs dans cette session)"
+  for c in docker wireshark vboxusers; do
+    if id -nG | tr ' ' '\n' | grep -qx "$c"; then ok "$c"
+    elif getent group "$c" | grep -qw "$USER"; then warn "$c : membre, mais reconnecte-toi pour l'activer"
+    else err "$c : non membre (sudo phase12-devtools-root.sh)"; fi
+  done
+  if command -v code >/dev/null; then
+    section "EXTENSIONS VS CODE"
+    code --list-extensions 2>/dev/null | sed 's/^/  /'
+  fi
+}
+
+install_uv() {
+  section "PYTHON · uv"
+  need pipx
+  if pipx list --short 2>/dev/null | grep -q '^uv '; then pipx upgrade uv >/dev/null || true
+  else pipx install uv; fi
+  ok "$(uv --version)  (Python système $(python3 -V | cut -d' ' -f2) ; projets : uv init / uv add)"
+}
+
+install_node() {
+  section "NODE.JS · fnm"
+  if [[ ! -x $FNM_DIR/fnm ]]; then
+    local tmp; tmp=$(mktemp -d); trap 'rm -rf "$tmp"' RETURN
+    info "téléchargement de fnm ($FNM_URL)"
+    curl -fsSL --proto '=https' -o "$tmp/fnm.zip" "$FNM_URL"
+    python3 -m zipfile -e "$tmp/fnm.zip" "$tmp/"
+    install -Dm755 "$tmp/fnm" "$FNM_DIR/fnm"
+  fi
+  ln -sf "$FNM_DIR/fnm" "$HOME/.local/bin/fnm"
+  ok "$(fnm --version)"
+  eval "$(fnm env --shell bash)"
+  fnm install --lts
+  local lts; lts=$(fnm ls | grep -oE 'v[0-9]+\.[0-9]+\.[0-9]+' | sort -V | tail -1)
+  fnm default "$lts"
+  ok "Node $lts par défaut (npm $(fnm exec --using="$lts" npm --version))"
+}
+
+setup_vscode() {
+  section "VS CODE"
+  if ! command -v code >/dev/null; then warn "code absent : lance d'abord sudo phase12-devtools-root.sh"; return; fi
+  # Sous Sway, VS Code ne détecte pas de trousseau et stockerait les jetons
+  # GitHub/Microsoft en clair (« basic ») : on force libsecret (gnome-keyring).
+  if [[ ! -e $ARGV ]]; then
+    install -d "${ARGV%/*}"
+    printf '{\n  // glass-soc : jetons dans gnome-keyring (libsecret)\n  "password-store": "gnome-libsecret"\n}\n' > "$ARGV"
+    ok "argv.json : password-store = gnome-libsecret"
+  elif ! grep -q '"password-store"' "$ARGV"; then
+    warn "ajoute \"password-store\": \"gnome-libsecret\" dans $ARGV"
+  fi
+  [[ -r $EXT_LIST ]] || { warn "liste absente : $EXT_LIST (install.sh / stow vscode)"; return; }
+  local have e
+  have=$(code --list-extensions 2>/dev/null | tr '[:upper:]' '[:lower:]')
+  while read -r e; do
+    [[ -z $e || $e == \#* ]] && continue
+    if grep -qx "${e,,}" <<<"$have"; then printf '  %s·%s %s\n' "$C_MUTED" "$C_RST" "$e"
+    elif out=$(code --install-extension "$e" --force 2>&1); then ok "$e"
+    else err "$e"; grep -v -e DEP0169 -e trace-deprecation <<<"$out" >&2 || true; fi
+  done < <(awk '{print $1}' "$EXT_LIST")
+}
+
+# mime DESKTOP TYPE... : application par défaut si son .desktop existe
+mime() {
+  local app=$1; shift
+  if [[ -e /usr/share/applications/$app ]]; then xdg-mime default "$app" "$@"; ok "${app%.desktop} : $*"
+  else printf '  %s·%s %s absent (phase13 non lancée ?)\n' "$C_MUTED" "$C_RST" "$app"; fi
+}
+
+setup_desktop() {
+  section "APPLICATIONS PAR DÉFAUT"
+  need xdg-mime
+  mime org.pwmt.zathura-pdf-poppler.desktop application/pdf
+  mime imv.desktop image/png image/jpeg image/gif image/webp image/bmp image/tiff image/svg+xml
+  mime vlc.desktop video/mp4 video/x-matroska video/webm video/quicktime video/x-msvideo \
+       audio/mpeg audio/ogg audio/flac audio/x-wav audio/mp4 audio/aac audio/opus
+  mime xarchiver.desktop application/zip application/x-7z-compressed application/x-tar \
+       application/gzip application/x-xz-compressed-tar application/x-compressed-tar
+  # KeePassXC : thème sombre, icône compacte (écrit seulement à la 1re fois)
+  local kp=${XDG_CONFIG_HOME:-$HOME/.config}/keepassxc/keepassxc.ini
+  if command -v keepassxc >/dev/null && [[ ! -e $kp ]]; then
+    install -d "${kp%/*}"
+    printf '[GUI]\nApplicationTheme=dark\nCompactMode=true\nMinimizeOnClose=false\n\n[Security]\nLockDatabaseIdle=true\nLockDatabaseIdleSeconds=600\nClearClipboardTimeout=10\n' > "$kp"
+    ok "KeePassXC : thème sombre, verrouillage après 10 min, presse-papiers vidé après 10 s"
+  fi
+}
+
+remove() {
+  section "RETRAIT"
+  if pipx uninstall uv >/dev/null 2>&1; then ok "uv retiré"; fi
+  rm -rf "$FNM_DIR" "$HOME/.local/bin/fnm" "${XDG_STATE_HOME:-$HOME/.local/state}"/fnm_multishells
+  ok "fnm et Node retirés"
+}
+
+case ${1:-} in
+  -h|--help) usage ;;
+  --check) check ;;
+  --remove) remove ;;
+  "")
+    box_title "dev-setup" "uv · Node LTS (fnm) · VS Code"
+    install_uv; install_node; setup_vscode; setup_desktop
+    printf '\n'; info "ouvre un nouveau terminal (fnm/uv chargés par ~/.config/bash/35-dev.sh)"
+    info "état complet : dev-setup --check" ;;
+  *) usage >&2; exit 1 ;;
+esac

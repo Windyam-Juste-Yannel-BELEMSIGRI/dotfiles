@@ -75,7 +75,11 @@ draw() {
   fi
   kv "profil" "$(powerprofilesctl get 2>/dev/null || echo '?') · firmware $(cat /sys/firmware/acpi/platform_profile 2>/dev/null || echo '?')"
   local gpu
-  gpu=$(for d in /sys/bus/pci/devices/*; do [[ $(<"$d/vendor") == 0x10de && $(<"$d/class") == 0x03* ]] && cat "$d/power/runtime_status"; done)
+  # `if` plutôt que `[[ ]] && cat` : sinon le dernier périphérique non NVIDIA
+  # rend le code 1 à la substitution et `set -e` tue le script.
+  gpu=$(for d in /sys/bus/pci/devices/*; do
+          if [[ $(<"$d/vendor") == 0x10de && $(<"$d/class") == 0x03* ]]; then cat "$d/power/runtime_status"; fi
+        done)
   kv "GPU NVIDIA" "${gpu:-absent}"
   if [[ -r /sys/class/power_supply/BAT0/capacity ]]; then
     kv "batterie" "$(bar "$(</sys/class/power_supply/BAT0/capacity)" 30) $(</sys/class/power_supply/BAT0/status)"

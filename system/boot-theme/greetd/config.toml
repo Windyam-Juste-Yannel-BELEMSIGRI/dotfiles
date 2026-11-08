@@ -1,0 +1,7 @@
+# greetd — écran de connexion glass // SOC (original : config.toml.debian)
+[terminal]
+vt = 7
+
+[default_session]
+command = "tuigreet --time --time-format '%A %d %B · %H:%M' --remember --asterisks --width 60 --container-padding 2 --greeting 'glass // SOC  ·  Debian GNU/Linux 13' --theme 'border=darkgray;title=cyan;greet=cyan;text=gray;time=gray;prompt=cyan;input=white;action=darkgray;button=cyan' --cmd /home/windyam_yannel/.local/bin/sway-launch"
+user = "_greetd"

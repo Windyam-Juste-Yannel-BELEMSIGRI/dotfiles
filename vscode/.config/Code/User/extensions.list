@@ -1,0 +1,11 @@
+# Extensions VS Code installées par `dev-setup` (une par ligne, # = commentaire)
+ms-python.python                  # Python + Pylance + débogueur
+ms-toolsai.jupyter                # notebooks (ai-ml-projects)
+charliermarsh.ruff                # lint + formatage Python
+ms-vscode.cpptools                # C : IntelliSense + débogage gdb
+james-yu.latex-workshop           # LaTeX : latexmk, aperçu PDF, SyncTeX
+ms-azuretools.vscode-containers   # Docker / compose
+mtxr.sqltools                     # client SQL
+mtxr.sqltools-driver-pg           # pilote PostgreSQL pour SQLTools
+redhat.vscode-yaml                # compose, règles Sigma, CI
+astro-build.astro-vscode          # portfolio (Astro)

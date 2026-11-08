@@ -16,7 +16,15 @@ section "PILOTES"
 if [[ -d /sys/module/nvidia ]]; then ok "module nvidia chargé ($(cat /sys/module/nvidia/version 2>/dev/null))"
 else err "module nvidia NON chargé"; fi
 if [[ -d /sys/module/nouveau ]]; then err "nouveau encore chargé (liste noire inopérante ?)"; else ok "nouveau non chargé"; fi
-ms=$(cat /sys/module/nvidia_drm/parameters/modeset 2>/dev/null || echo '?')
+ms=$(cat /sys/module/nvidia_drm/parameters/modeset 2>/dev/null || true)
+# Paramètre lisible par root seulement : sinon, des connecteurs sur la carte
+# NVIDIA (cardN-HDMI-A-*, …) prouvent que le KMS (modeset=1) est actif.
+if [[ -z $ms ]]; then
+  ms='?'
+  for c in /sys/class/drm/card[0-9]; do
+    [[ $(<"$c/device/vendor") == 0x10de ]] && compgen -G "$c-*" >/dev/null && ms=Y
+  done
+fi
 if [[ $ms == Y ]]; then ok "nvidia-drm modeset = Y"; else warn "nvidia-drm modeset = $ms"; fi
 
 section "ÉNERGIE (RTD3)"

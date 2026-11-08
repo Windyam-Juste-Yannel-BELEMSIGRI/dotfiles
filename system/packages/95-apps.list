@@ -1,0 +1,37 @@
+# Phase 13 — applications de bureau (thème : GTK Adwaita-dark / Qt adwaita-dark)
+# Debian 13 officiel, sauf virtualbox-7.2 (dépôt Oracle via extrepo, épinglé).
+
+# ── Web (second navigateur : tests, profils séparés, labs) ──
+chromium
+
+# ── Multimédia ──
+vlc
+vlc-plugin-pipewire
+ffmpeg
+
+# ── Documents ──
+zathura                     # PDF au clavier (sortie LaTeX, SyncTeX → VS Code)
+zathura-pdf-poppler
+imv                         # images, natif Wayland
+libreoffice-writer          # rapports .docx de l'école
+libreoffice-calc
+libreoffice-impress
+libreoffice-gtk3            # intégration GTK → thème sombre
+libreoffice-l10n-fr
+hunspell-fr
+fonts-crosextra-carlito     # métriques Calibri : mise en page .docx fidèle
+fonts-crosextra-caladea     # métriques Cambria
+fonts-liberation2           # métriques Arial / Times / Courier
+
+# ── Archives (CTF : 7z, zip protégés) ──
+7zip
+zip
+unzip
+xarchiver
+thunar-archive-plugin
+
+# ── Sécurité ──
+keepassxc-full              # gestionnaire de mots de passe (+ intégration navigateur)
+
+# ── Virtualisation (VM des labs, Kali, OVA VulnHub) ──
+virtualbox-7.2
