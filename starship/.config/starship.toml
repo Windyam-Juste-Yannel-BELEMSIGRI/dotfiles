@@ -1,0 +1,82 @@
+# starship 1.22 — "glass // SOC"
+"$schema" = 'https://starship.rs/config-schema.json'
+add_newline = true
+command_timeout = 800
+palette = "glass"
+
+format = """
+[╭─](overlay)$username$hostname$directory$git_branch$git_status$python$c$rust$golang$docker_context$cmd_duration$status
+[╰─](overlay)$jobs$character"""
+right_format = "$time"
+
+[palettes.glass]
+bg = "#1c1c1e"
+surface = "#2a2a2e"
+overlay = "#4a4a50"
+fg = "#e8e8ec"
+muted = "#a8a8ae"
+accent = "#7dd3c0"
+red = "#c07070"
+green = "#8fb090"
+yellow = "#d8a657"
+blue = "#7a9dc0"
+purple = "#b090c0"
+
+[username]
+show_always = false
+style_user = "bold yellow"
+style_root = "bold red"
+format = "[$user]($style)"
+
+[hostname]
+ssh_only = true
+ssh_symbol = "󰣀 "
+style = "bold red"
+format = "[@$hostname $ssh_symbol]($style) "
+
+[directory]
+style = "bold accent"
+read_only = " 󰌾"
+truncation_length = 4
+truncation_symbol = "…/"
+format = "[ $path]($style)[$read_only]($read_only_style) "
+
+[git_branch]
+symbol = " "
+style = "purple"
+format = "[$symbol$branch]($style) "
+
+[git_status]
+style = "yellow"
+format = "([$all_status$ahead_behind]($style) )"
+
+[python]
+symbol = " "
+style = "blue"
+format = "[$symbol$version( \\($virtualenv\\))]($style) "
+
+[cmd_duration]
+min_time = 2000
+style = "muted"
+format = "[󱎫 $duration]($style) "
+
+[status]
+disabled = false
+symbol = "✖ "
+style = "red"
+format = "[$symbol$status]($style) "
+
+[jobs]
+symbol = " "
+style = "yellow"
+
+[character]
+success_symbol = "[❯](bold accent)"
+error_symbol = "[❯](bold red)"
+vimcmd_symbol = "[❮](bold green)"
+
+[time]
+disabled = false
+time_format = "%H:%M"
+style = "muted"
+format = "[$time]($style)"
