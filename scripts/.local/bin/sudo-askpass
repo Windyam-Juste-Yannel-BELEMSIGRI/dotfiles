@@ -1,0 +1,16 @@
+#!/usr/bin/env bash
+# sudo-askpass — helper SUDO_ASKPASS pour Wayland : ouvre une fenêtre foot
+# flottante qui lit le mot de passe sans écho et le renvoie sur stdout via un
+# FIFO privé dans $XDG_RUNTIME_DIR (0700). Rien n'est écrit sur disque.
+# Usage : SUDO_ASKPASS=~/.local/bin/sudo-askpass sudo -A <commande>
+set -euo pipefail
+[[ "${1:-}" == "-h" ]] && { sed -n '2,5p' "$0"; exit 0; }
+command -v foot >/dev/null || { echo "foot requis" >&2; exit 1; }
+dir=$(mktemp -d "${XDG_RUNTIME_DIR:-/tmp}/askpass.XXXXXX")
+trap 'rm -rf "$dir"' EXIT
+mkfifo -m 600 "$dir/fifo"
+prompt=${1:-"[sudo] mot de passe"}
+# shellcheck disable=SC2016  # $1/$2 sont développés par le bash enfant
+foot --app-id=sudo-askpass --title="sudo — authentification" -W 70x6 \
+  bash -c 'printf "\e[1;36m╭─ %s\e[0m\n\e[1;36m╰─▶\e[0m " "$1"; IFS= read -rs p; printf "%s\n" "$p" > "$2"' _ "$prompt" "$dir/fifo" &
+cat "$dir/fifo"

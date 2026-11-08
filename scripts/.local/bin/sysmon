@@ -1,0 +1,107 @@
+#!/usr/bin/env bash
+# ╭──────────────────────────────────────────────────────────────────────╮
+# │ sysmon — mini tableau de bord système (terminal)                     │
+# │ Usage : sysmon [-n SECONDES] [--once] [-h]                           │
+# │   -n     intervalle de rafraîchissement (défaut 2 s)                  │
+# │   --once une seule image (scriptable, sans effacement d'écran)        │
+# │ Touches : q quitter · r rafraîchir                                    │
+# │ Sources : /proc (stat, meminfo, loadavg), /sys (hwmon, batterie,      │
+# │ platform_profile), ip, ps — aucun privilège requis.                   │
+# ╰──────────────────────────────────────────────────────────────────────╯
+set -euo pipefail
+# shellcheck source=../lib/soc/ui.sh
+source "$(dirname "$(readlink -f "$0")")/../lib/soc/ui.sh"
+usage() { sed -n '3,9p' "$0" | sed 's/^# │ \{0,1\}//; s/ *│$//'; }
+
+INTERVAL=2 ONCE=0
+while (( $# )); do
+  case $1 in
+    -n) INTERVAL=${2:?}; shift ;;
+    --once) ONCE=1 ;;
+    -h|--help) usage; exit 0 ;;
+    *) usage >&2; exit 1 ;;
+  esac
+  shift
+done
+
+# cpu_sample : "total idle" depuis /proc/stat
+cpu_sample() { awk '/^cpu /{t=0; for(i=2;i<=NF;i++) t+=$i; print t, $5+$6}' /proc/stat; }
+# hwmon NAME : chemin du hwmon portant ce nom
+hwmon() { local f; f=$(grep -lx "$1" /sys/class/hwmon/hwmon*/name 2>/dev/null | head -1); echo "${f%/name}"; }
+# net_bytes IFACE : "rx tx"
+net_bytes() { echo "$(<"/sys/class/net/$1/statistics/rx_bytes") $(<"/sys/class/net/$1/statistics/tx_bytes")"; }
+# kv LABEL VALEUR : ligne alignée
+kv() { printf '  %s%-11s%s %s\n' "$C_MUTED" "$1" "$C_RST" "$2"; }
+
+CORETEMP=$(hwmon coretemp)
+ASUS=$(hwmon asus)
+read -r t0 i0 < <(cpu_sample)
+IFACE=$(ip -4 route show default 2>/dev/null | awk '{print $5; exit}')
+[[ -n $IFACE ]] && read -r rx0 tx0 < <(net_bytes "$IFACE")
+(( ONCE )) && sleep 0.5
+
+draw() {
+  local t1 i1 cpu mem_t mem_a swp_t swp_f mem_p swp_p load temp tmax rx1 tx1 drx dtx
+  read -r t1 i1 < <(cpu_sample)
+  cpu=$(( (t1 - t0) > 0 ? 100 * ((t1 - t0) - (i1 - i0)) / (t1 - t0) : 0 ))
+  t0=$t1 i0=$i1
+  read -r mem_t mem_a swp_t swp_f < <(awk '/^MemTotal/{t=$2}/^MemAvailable/{a=$2}/^SwapTotal/{st=$2}/^SwapFree/{sf=$2} END{print t,a,st,sf}' /proc/meminfo)
+  mem_p=$(( 100 * (mem_t - mem_a) / mem_t ))
+  swp_p=$(( swp_t > 0 ? 100 * (swp_t - swp_f) / swp_t : 0 ))
+  load=$(cut -d' ' -f1-3 /proc/loadavg)
+
+  (( ONCE )) || printf '\e[H\e[2J'
+  banner "sysmon · $(hostname -s) · $(date '+%F %T') · UTC $(date -u +%H:%M)"
+  section "SYSTÈME"
+  kv "noyau" "$(uname -r)"
+  kv "uptime" "$(uptime -p | sed 's/^up //')"
+  kv "load" "$load  ($(nproc) threads)"
+  section "RESSOURCES"
+  kv "CPU" "$(bar "$cpu" 30)"
+  kv "RAM" "$(bar "$mem_p" 30)  $(human $(( (mem_t - mem_a) * 1024 ))) / $(human $(( mem_t * 1024 )))"
+  kv "swap" "$(bar "$swp_p" 30)"
+  kv "disque /" "$(bar "$(df --output=pcent / | tail -1 | tr -dc 0-9)" 30)  $(df -h --output=avail / | tail -1 | tr -d ' ') libres"
+
+  section "THERMIQUE / ÉNERGIE"
+  if [[ -n $CORETEMP ]]; then
+    temp=$(( $(<"$CORETEMP/temp1_input") / 1000 ))
+    tmax=$(cat "$CORETEMP"/temp*_input | sort -n | tail -1); tmax=$(( tmax / 1000 ))
+    kv "CPU temp" "$(color_for "$temp" 75 90)${temp}°C$C_RST package · ${tmax}°C cœur max"
+  fi
+  if [[ -n $ASUS ]]; then
+    local fans=""
+    for f in "$ASUS"/fan*_input; do fans+="$(<"${f%_input}_label")=$(<"$f") "; done
+    kv "ventilos" "$fans(tr/min)"
+  fi
+  kv "profil" "$(powerprofilesctl get 2>/dev/null || echo '?') · firmware $(cat /sys/firmware/acpi/platform_profile 2>/dev/null || echo '?')"
+  local gpu
+  gpu=$(for d in /sys/bus/pci/devices/*; do [[ $(<"$d/vendor") == 0x10de && $(<"$d/class") == 0x03* ]] && cat "$d/power/runtime_status"; done)
+  kv "GPU NVIDIA" "${gpu:-absent}"
+  if [[ -r /sys/class/power_supply/BAT0/capacity ]]; then
+    kv "batterie" "$(bar "$(</sys/class/power_supply/BAT0/capacity)" 30) $(</sys/class/power_supply/BAT0/status)"
+  fi
+
+  section "RÉSEAU"
+  if [[ -n $IFACE ]]; then
+    read -r rx1 tx1 < <(net_bytes "$IFACE")
+    drx=$(( (rx1 - rx0) / INTERVAL )); dtx=$(( (tx1 - tx0) / INTERVAL )); rx0=$rx1 tx0=$tx1
+    kv "$IFACE" "$(ip -4 -br addr show "$IFACE" | awk '{print $3}')  ↓ $(human "$drx")/s  ↑ $(human "$dtx")/s"
+  else
+    kv "réseau" "${C_RED}aucune route par défaut${C_RST}"
+  fi
+  kv "TCP" "$(ss -Htn state established | wc -l) établies · $(ss -Htln | wc -l) en écoute"
+
+  section "TOP PROCESSUS (CPU)"
+  ps -eo pid,user:12,pcpu,pmem,comm --sort=-pcpu | head -6 \
+    | awk -v a="$C_ACC" -v r="$C_RST" 'NR==1{printf "  %s%s%s\n", a, $0, r; next}{printf "  %s\n", $0}'
+  (( ONCE )) || printf '\n  %sq%s quitter · %sr%s rafraîchir' "$C_ACC" "$C_RST" "$C_ACC" "$C_RST"
+}
+
+if (( ONCE )); then draw; exit 0; fi
+tput civis 2>/dev/null || true
+trap 'tput cnorm 2>/dev/null || true; printf "\n"' EXIT
+while :; do
+  draw
+  key=""; read -rsn1 -t "$INTERVAL" key || true
+  [[ $key == q ]] && break
+done

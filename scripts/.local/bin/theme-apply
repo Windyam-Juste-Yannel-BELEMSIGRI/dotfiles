@@ -1,0 +1,19 @@
+#!/usr/bin/env bash
+# ╭──────────────────────────────────────────────────────────────────────╮
+# │ theme-apply — applique le thème GTK/libadwaita (gsettings → dconf)   │
+# │ Usage : theme-apply [-h]                                             │
+# │ Sombre (Adwaita-dark), icônes Papirus-Dark, curseur Bibata, polices. │
+# │ Sans gsettings (paquet libglib2.0-bin), seuls les fichiers           │
+# │ ~/.config/gtk-{3,4}.0/settings.ini s'appliquent.                     │
+# ╰──────────────────────────────────────────────────────────────────────╯
+set -euo pipefail
+[[ ${1:-} == -h || ${1:-} == --help ]] && { sed -n '3,6p' "$0" | sed 's/^# │ \{0,1\}//; s/ *│$//'; exit 0; }
+command -v gsettings >/dev/null || { echo "gsettings absent : settings.ini seulement" >&2; exit 0; }
+s=org.gnome.desktop.interface
+gsettings set $s color-scheme prefer-dark
+gsettings set $s gtk-theme Adwaita-dark
+gsettings set $s icon-theme Papirus-Dark
+gsettings set $s cursor-theme Bibata-Modern-Classic
+gsettings set $s cursor-size 24
+gsettings set $s font-name 'Sans 10'
+gsettings set $s monospace-font-name 'JetBrainsMono Nerd Font 10'

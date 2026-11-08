@@ -1,0 +1,17 @@
+#!/usr/bin/env bash
+# ╭──────────────────────────────────────────────────────────────────────╮
+# │ dnd-toggle — mode "ne pas déranger" de mako (critiques visibles)     │
+# │ Usage : dnd-toggle [-h]                                              │
+# ╰──────────────────────────────────────────────────────────────────────╯
+set -euo pipefail
+[[ ${1:-} == -h || ${1:-} == --help ]] && { sed -n '3,3p' "$0" | sed 's/^# │ \{0,1\}//; s/ *│$//'; exit 0; }
+command -v makoctl >/dev/null || { echo "makoctl requis (mako-notifier)" >&2; exit 127; }
+
+makoctl mode -t do-not-disturb >/dev/null
+if makoctl mode | grep -qx do-not-disturb; then
+  echo "DND : on"
+else
+  echo "DND : off"
+  notify-send -a osd -u low "󰂚  Notifications réactivées" || true
+fi
+pkill -RTMIN+8 -x waybar || true

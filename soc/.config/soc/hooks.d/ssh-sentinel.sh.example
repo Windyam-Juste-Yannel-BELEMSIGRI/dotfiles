@@ -1,0 +1,22 @@
+#!/usr/bin/env bash
+# ╭──────────────────────────────────────────────────────────────────────╮
+# │ Hook soc-dashboard → base ssh-sentinel (PostgreSQL)                  │
+# │ Activation :                                                          │
+# │   cp ssh-sentinel.sh.example ssh-sentinel.sh && chmod +x ssh-sentinel.sh│
+# │ Connexion : AUCUN secret ici. Utilisez ~/.pgpass (chmod 600) ou un    │
+# │ service PG (~/.pg_service.conf) ; variables PG* lues par psql.        │
+# │ Adapter TABLE / colonnes au schéma réel de ssh-sentinel.              │
+# ╰──────────────────────────────────────────────────────────────────────╯
+set -euo pipefail
+command -v psql >/dev/null || { echo "psql absent (paquet postgresql-client)"; exit 0; }
+
+: "${PGSERVICE:=ssh-sentinel}"     # section de ~/.pg_service.conf
+export PGSERVICE PGCONNECT_TIMEOUT=3
+
+psql -X -q -A -F $'\t' -t <<'SQL' | awk -F'\t' '{printf "%-6s %-40s %s\n", $1, $2, $3}' || echo "base ssh-sentinel injoignable"
+-- Top 5 des IP les plus agressives sur 24 h (schéma à adapter)
+SELECT count(*) AS n, src_ip, max(ts)::timestamp(0)
+FROM   auth_events
+WHERE  ts > now() - interval '24 hours' AND outcome = 'failure'
+GROUP  BY src_ip ORDER BY n DESC LIMIT 5;
+SQL

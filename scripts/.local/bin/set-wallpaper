@@ -1,0 +1,95 @@
+#!/usr/bin/env bash
+# ╭──────────────────────────────────────────────────────────────────────╮
+# │ set-wallpaper — fonds d'écran "glass // SOC"                         │
+# │ Usage : set-wallpaper [apply|next|gen|list|FICHIER] [-h]             │
+# │   apply  (défaut) applique ~/.local/share/backgrounds/current         │
+# │          (le crée si absent : image perso, sinon fond généré)         │
+# │   next   passe à l'image suivante                                     │
+# │   gen    (re)génère le fond "glass-soc" (ImageMagick) à la résolution │
+# │          de l'écran principal                                         │
+# │   list   liste les images disponibles                                 │
+# │ Images perso : déposez-les dans ~/Pictures/wallpaper/ (prioritaires,  │
+# │ ex. mahoraga.png du thème d'origine). Aucune image téléchargée.       │
+# ╰──────────────────────────────────────────────────────────────────────╯
+set -euo pipefail
+# shellcheck source=../lib/soc/ui.sh
+source "$(dirname "$(readlink -f "$0")")/../lib/soc/ui.sh"
+usage() { sed -n '3,12p' "$0" | sed 's/^# │ \{0,1\}//; s/ *│$//'; }
+
+BG_DIR=$HOME/.local/share/backgrounds
+USER_DIR=$HOME/Pictures/wallpaper
+CUR=$BG_DIR/current
+GEN=$BG_DIR/glass-soc.png
+mkdir -p "$BG_DIR"
+
+# images : liste triée des fonds disponibles (perso d'abord, puis générés)
+images() {
+  find "$USER_DIR" "$BG_DIR" -maxdepth 1 -type f \
+    \( -iname '*.png' -o -iname '*.jpg' -o -iname '*.jpeg' -o -iname '*.webp' \) \
+    ! -name 'lock-*' 2>/dev/null | sort
+}
+
+# screen_size : "LxH" de la sortie focalisée (2560x1600 par défaut)
+screen_size() {
+  swaymsg -t get_outputs -r 2>/dev/null \
+    | jq -r 'first(.[] | select(.focused)) | "\(.current_mode.width)x\(.current_mode.height)"' 2>/dev/null \
+    || echo 2560x1600
+}
+
+# gen : fond sombre en dégradé radial + grille sarcelle discrète + signature
+gen() {
+  need magick
+  local size w h tmp
+  size=$(screen_size); w=${size%x*}; h=${size#*x}
+  tmp=$(mktemp -d); trap 'rm -rf "$tmp"' RETURN
+  # motif de grille 48px (lignes à ~5 % d'opacité)
+  magick -size 48x48 xc:none -fill none -stroke '#7dd3c00d' -strokewidth 1 \
+    -draw 'line 0,0 47,0' -draw 'line 0,0 0,47' "$tmp/grid.png"
+  # points aux intersections (néon discret)
+  magick -size 192x192 xc:none -fill '#7dd3c033' -draw 'circle 0,0 1.2,0' "$tmp/dots.png"
+  magick -size "${w}x${h}" radial-gradient:'#26262b-#111113' \
+    \( -size "${w}x${h}" tile:"$tmp/grid.png" \) -compose over -composite \
+    \( -size "${w}x${h}" tile:"$tmp/dots.png" \) -compose over -composite \
+    \( -size "${w}x${h}" xc:none -fill '#7dd3c0' -draw "rectangle 0,$((h-3)) $w,$h" \) -compose over -composite \
+    -font "JetBrainsMono-NF-Regular" -pointsize $((h / 64)) -fill '#7dd3c040' \
+    -gravity southeast -annotate +$((w / 40))+$((h / 30)) "SOC // GLASS   $(hostname -s)" \
+    -fill '#a8a8ae26' -pointsize $((h / 110)) \
+    -annotate +$((w / 40))+$((h / 30 + h / 50)) "sway · debian 13 · trust nothing, log everything" \
+    "$GEN"
+  ok "fond généré : $GEN (${w}x${h})"
+}
+
+# apply_file F : pointe current vers F et l'applique à toutes les sorties
+apply_file() {
+  ln -sfn "$1" "$CUR"
+  if [[ -n ${SWAYSOCK:-} ]]; then
+    swaymsg "output * bg $CUR fill #1c1c1e" >/dev/null
+  fi
+  # invalide puis précalcule (arrière-plan) l'image de verrouillage
+  rm -f "$BG_DIR"/lock-*.png
+  if command -v magick >/dev/null && [[ -x $HOME/.local/bin/lock-glitch ]]; then
+    ( "$HOME/.local/bin/lock-glitch" --preview "$BG_DIR/lock-$(basename "${1%.*}").png" >/dev/null 2>&1 & )
+  fi
+  info "fond : $1"
+}
+
+case ${1:-apply} in
+  -h|--help) usage ;;
+  gen) gen; apply_file "$GEN" ;;
+  list) images ;;
+  apply)
+    if [[ ! -e $CUR ]]; then
+      first=$(images | head -1)
+      if [[ -z $first ]]; then gen; first=$GEN; fi
+      apply_file "$first"
+    else
+      apply_file "$(readlink -f "$CUR")"
+    fi ;;
+  next)
+    mapfile -t all < <(images)
+    (( ${#all[@]} )) || { gen; all=("$GEN"); }
+    cur=$(readlink -f "$CUR" 2>/dev/null || true); idx=0
+    for i in "${!all[@]}"; do [[ ${all[$i]} == "$cur" ]] && idx=$(( (i + 1) % ${#all[@]} )); done
+    apply_file "${all[$idx]}" ;;
+  *) [[ -f $1 ]] || die "fichier introuvable : $1"; apply_file "$(readlink -f "$1")" ;;
+esac

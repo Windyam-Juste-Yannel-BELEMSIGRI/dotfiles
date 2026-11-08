@@ -1,0 +1,79 @@
+#!/usr/bin/env bash
+# ╭──────────────────────────────────────────────────────────────────────╮
+# │ osd — touches matérielles + affichage à l'écran (notification mako)  │
+# │ Usage : osd <action>                                                  │
+# │   volume-up | volume-down | volume-mute | mic-mute                    │
+# │   bright-up | bright-down | kbd-up | kbd-down                         │
+# │ La notification (app-name "osd") est remplacée en place.              │
+# │ Luminosité : écriture via logind (Session.SetBrightness, D-Bus) → pas │
+# │ de règle udev ni de droits root ; brightnessctl sert à la lecture.    │
+# ╰──────────────────────────────────────────────────────────────────────╯
+set -euo pipefail
+# shellcheck source=../lib/soc/ui.sh
+source "$(dirname "$(readlink -f "$0")")/../lib/soc/ui.sh"
+
+usage() { sed -n '3,7p' "$0" | sed 's/^# │ \{0,1\}//; s/ *│$//'; }
+[[ $# -eq 1 && $1 != -h && $1 != --help ]] || { usage; [[ ${1:-} == -h || ${1:-} == --help ]]; exit $?; }
+
+IDFILE=${XDG_RUNTIME_DIR:-/tmp}/soc/osd.id
+mkdir -p "${IDFILE%/*}"
+KBD=asus::kbd_backlight
+
+# show ICONE TEXTE VALEUR : notification OSD remplaçable avec jauge (0-100)
+show() {
+  local id args=(-a osd -u low -h "int:value:$3" -p)
+  id=$(cat "$IDFILE" 2>/dev/null || true)
+  [[ -n $id ]] && args+=(-r "$id")
+  notify-send "${args[@]}" "$1  $2" > "$IDFILE" 2>/dev/null || true
+}
+
+# set_level CLASSE DEVICE DELTA_PCT [MIN] : ajuste un rétro-éclairage via logind
+#   CLASSE = backlight|leds ; DELTA_PCT signé (ex. 5, -5) ; MIN = valeur plancher
+set_level() {
+  local cls=$1 dev=$2 delta=$3 min=${4:-0} cur max new step
+  cur=$(<"/sys/class/$cls/$dev/brightness"); max=$(<"/sys/class/$cls/$dev/max_brightness")
+  step=$(( max * ${delta#-} / 100 )); (( step < 1 )) && step=1
+  if [[ $delta == -* ]]; then new=$(( cur - step )); else new=$(( cur + step )); fi
+  (( new < min )) && new=$min; (( new > max )) && new=$max
+  busctl call org.freedesktop.login1 /org/freedesktop/login1/session/auto \
+    org.freedesktop.login1.Session SetBrightness ssu "$cls" "$dev" "$new"
+  echo $(( new * 100 / max ))
+}
+
+# backlight_dev : premier périphérique de la classe backlight
+backlight_dev() { local d; for d in /sys/class/backlight/*; do echo "${d##*/}"; return; done; }
+
+# vol_state ID : "PCT MUTED" (MUTED=1 si coupé) via wpctl
+vol_state() {
+  local out; out=$(wpctl get-volume "$1" 2>/dev/null)
+  awk '{printf "%d %d\n", $2*100+0.5, ($3=="[MUTED]")}' <<<"$out"
+}
+
+case $1 in
+  volume-up|volume-down|volume-mute)
+    need wpctl
+    case $1 in
+      volume-up)   wpctl set-mute @DEFAULT_AUDIO_SINK@ 0 2>/dev/null; wpctl set-volume -l 1.0 @DEFAULT_AUDIO_SINK@ 5%+ 2>/dev/null ;;
+      volume-down) wpctl set-volume @DEFAULT_AUDIO_SINK@ 5%- 2>/dev/null ;;
+      volume-mute) wpctl set-mute @DEFAULT_AUDIO_SINK@ toggle 2>/dev/null ;;
+    esac
+    read -r v m < <(vol_state @DEFAULT_AUDIO_SINK@)
+    if (( m )); then show "󰝟" "Muet" 0; else show "󰕾" "Volume ${v}%" "$v"; fi ;;
+  mic-mute)
+    need wpctl
+    wpctl set-mute @DEFAULT_AUDIO_SOURCE@ toggle 2>/dev/null
+    read -r v m < <(vol_state @DEFAULT_AUDIO_SOURCE@)
+    if (( m )); then show "󰍭" "Micro coupé" 0; else show "󰍬" "Micro ${v}%" "$v"; fi ;;
+  bright-up|bright-down)
+    need busctl
+    dev=$(backlight_dev); [[ -n $dev ]] || die "aucun rétro-éclairage"
+    if [[ $1 == bright-up ]]; then p=$(set_level backlight "$dev" 5); else p=$(set_level backlight "$dev" -5 1); fi
+    show "󰃠" "Luminosité ${p}%" "$p" ;;
+  kbd-up|kbd-down)
+    need busctl
+    [[ -e /sys/class/leds/$KBD ]] || die "rétro-éclairage clavier absent ($KBD)"
+    # 3 niveaux sur ce modèle : un pas de 34 % = un niveau
+    if [[ $1 == kbd-up ]]; then p=$(set_level leds "$KBD" 34); else p=$(set_level leds "$KBD" -34); fi
+    show "󰌌" "Clavier $(<"/sys/class/leds/$KBD/brightness")/$(<"/sys/class/leds/$KBD/max_brightness")" "$p" ;;
+  *) usage >&2; exit 1 ;;
+esac

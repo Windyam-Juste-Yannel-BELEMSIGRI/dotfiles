@@ -1,0 +1,74 @@
+#!/usr/bin/env bash
+# ╭──────────────────────────────────────────────────────────────────────╮
+# │ netwatch — surveillance réseau en direct (ss + /sys)                 │
+# │ Usage : netwatch [-n SECONDES] [--once] [-h]                         │
+# │ Affiche : débit par interface, connexions TCP/UDP établies (avec     │
+# │ processus quand il vous appartient), ports en écoute, états TCP,     │
+# │ top des IP distantes. Touches : q quitter.                           │
+# │ Note : sans root, `ss -p` ne montre que VOS processus ; lancez       │
+# │ `sudo netwatch` pour tout voir (lecture seule).                      │
+# ╰──────────────────────────────────────────────────────────────────────╯
+set -euo pipefail
+# shellcheck source=../lib/soc/ui.sh
+source "$(dirname "$(readlink -f "$0")")/../lib/soc/ui.sh"
+usage() { sed -n '3,9p' "$0" | sed 's/^# │ \{0,1\}//; s/ *│$//'; }
+need ss ip awk
+
+INTERVAL=2 ONCE=0
+while (( $# )); do
+  case $1 in
+    -n) INTERVAL=${2:?}; shift ;;
+    --once) ONCE=1 ;;
+    -h|--help) usage; exit 0 ;;
+    *) usage >&2; exit 1 ;;
+  esac
+  shift
+done
+
+declare -A RX TX
+ifaces() { local d; for d in /sys/class/net/*; do [[ ${d##*/} == lo ]] || echo "${d##*/}"; done; }
+sample() { local i; for i in $(ifaces); do RX[$i]=$(<"/sys/class/net/$i/statistics/rx_bytes"); TX[$i]=$(<"/sys/class/net/$i/statistics/tx_bytes"); done; }
+sample
+(( ONCE )) && sleep 1 && INTERVAL=1
+
+# proc_of "users:((...))" → nom du processus
+draw() {
+  local i rx tx st
+  (( ONCE )) || printf '\e[H\e[2J'
+  box_title "netwatch · $(hostname -s)" "$(date '+%F %T') · UTC $(date -u +%H:%M:%S) · intervalle ${INTERVAL}s"
+
+  section "INTERFACES"
+  for i in $(ifaces); do
+    rx=$(<"/sys/class/net/$i/statistics/rx_bytes"); tx=$(<"/sys/class/net/$i/statistics/tx_bytes")
+    st=$(<"/sys/class/net/$i/operstate")
+    printf '  %s%-10s%s %-5s %-18s ↓ %10s/s  ↑ %10s/s\n' "$C_ACC" "$i" "$C_RST" "$st" \
+      "$(ip -4 -br addr show "$i" | awk '{print $3}')" \
+      "$(human $(( (rx - ${RX[$i]:-rx}) / INTERVAL )))" "$(human $(( (tx - ${TX[$i]:-tx}) / INTERVAL )))"
+    RX[$i]=$rx TX[$i]=$tx
+  done
+
+  section "ÉTATS TCP"
+  ss -Htan | awk '{c[$1]++} END{for(s in c) printf "  %-12s %d\n", s, c[s]}' | sort -k2 -nr | head -8
+
+  section "PORTS EN ÉCOUTE (TCP/UDP)"
+  printf '  %s%-5s %-28s %s%s\n' "$C_MUTED" "proto" "adresse:port" "processus" "$C_RST"
+  ss -Htulnp 2>/dev/null | awk '{p=$7; sub(/.*\(\("/,"",p); sub(/".*/,"",p); printf "  %-5s %-28s %s\n", $1, $5, (p==""?"-":p)}' | sort -u | head -15
+
+  section "CONNEXIONS ÉTABLIES (15 dernières)"
+  printf '  %s%-5s %-30s %-30s %s%s\n' "$C_MUTED" "proto" "local" "distant" "processus" "$C_RST"
+  ss -Htunp state established 2>/dev/null | awk '{p=$6; sub(/.*\(\("/,"",p); sub(/".*/,"",p); printf "  %-5s %-30s %-30s %s\n", $1, $4, $5, (p==""?"-":p)}' | head -15
+
+  section "TOP IP DISTANTES"
+  ss -Htn state established | awk '{print $4}' | sed -E 's/:[0-9]+$//; s/^\[|\]$//g' \
+    | sort | uniq -c | sort -rn | head -5 | awk '{printf "  %4d  %s\n", $1, $2}'
+  (( ONCE )) || printf '\n  %sq%s quitter' "$C_ACC" "$C_RST"
+}
+
+if (( ONCE )); then draw; exit 0; fi
+tput civis 2>/dev/null || true
+trap 'tput cnorm 2>/dev/null || true; printf "\n"' EXIT
+while :; do
+  draw
+  key=""; read -rsn1 -t "$INTERVAL" key || true
+  [[ $key == q ]] && break
+done

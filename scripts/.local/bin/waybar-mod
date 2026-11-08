@@ -1,0 +1,170 @@
+#!/usr/bin/env bash
+# ╭──────────────────────────────────────────────────────────────────────╮
+# │ waybar-mod — modules personnalisés waybar (sortie JSON)              │
+# │ Usage : waybar-mod <module> [action]                                 │
+# │   gpu          état/température du GPU NVIDIA (sans le réveiller)    │
+# │   fans         vitesse des ventilateurs ASUS (CPU/GPU/mid)           │
+# │   conns        connexions TCP établies + ports en écoute             │
+# │   ip-local     IP locale de la route par défaut                      │
+# │   ip-public    IP publique (masquée par défaut ; action : toggle)    │
+# │   vpn          interfaces/connexions VPN actives (wg, tun, NM vpn)   │
+# │   rec          indicateur d'enregistrement wf-recorder               │
+# │   dnd          mode "ne pas déranger" de mako                        │
+# │   ssh-fails    échecs d'authentification SSH sur 24 h (journal)      │
+# │ Signaux : RTMIN+8 rafraîchit ip-public/rec/dnd (pkill -RTMIN+8 waybar)│
+# ╰──────────────────────────────────────────────────────────────────────╯
+set -euo pipefail
+
+STATE=${XDG_RUNTIME_DIR:-/tmp}/soc
+mkdir -p "$STATE"
+
+usage() { sed -n '3,13p' "$0" | sed 's/^# │ \{0,1\}//; s/│$//'; }
+
+# json TEXT [TOOLTIP] [CLASS] : imprime un objet JSON waybar (échappement via jq)
+json() {
+  jq -cn --arg t "$1" --arg tt "$(printf '%b' "${2:-}")" --arg c "${3:-}" \
+    '{text:$t, tooltip:$tt, class:$c, alt:$c}'
+}
+
+# nvidia_pci : chemin sysfs du GPU NVIDIA (vendor 0x10de, classe 0x03xxxx)
+nvidia_pci() {
+  local d
+  for d in /sys/bus/pci/devices/*; do
+    [[ $(<"$d/vendor") == 0x10de && $(<"$d/class") == 0x03* ]] && { echo "$d"; return; }
+  done
+  return 1
+}
+
+mod_gpu() {
+  local d st t drv
+  d=$(nvidia_pci) || { json "" "Pas de GPU NVIDIA" none; return; }
+  st=$(<"$d/power/runtime_status")
+  drv=$(basename "$(readlink -f "$d/driver" 2>/dev/null)" 2>/dev/null || echo "?")
+  if [[ $st != active ]]; then
+    # Ne PAS lire hwmon/nvidia-smi : cela réveillerait le GPU (batterie).
+    json "󰢮 zz" "RTX 4060 : $st (économie d'énergie)\npilote : $drv" idle
+    return
+  fi
+  if command -v nvidia-smi >/dev/null; then
+    t=$(nvidia-smi --query-gpu=temperature.gpu --format=csv,noheader,nounits 2>/dev/null | head -1)
+  else
+    t=$(cat "$d"/hwmon/hwmon*/temp1_input 2>/dev/null | head -1); t=${t:+$((t / 1000))}
+  fi
+  local cls=active; [[ -n "$t" && $t -ge 80 ]] && cls=critical
+  json "󰢮 ${t:-?}°" "RTX 4060 : actif\npilote : $drv\ntempérature : ${t:-?} °C" "$cls"
+}
+
+mod_fans() {
+  local h f lbl v txt='' tt=''
+  h=$(grep -lx asus /sys/class/hwmon/hwmon*/name 2>/dev/null | head -1) || true
+  [[ -n "$h" ]] || { json "" "capteur asus absent" none; return; }
+  h=${h%/name}
+  for f in "$h"/fan*_input; do
+    lbl=$(<"${f%_input}_label"); v=$(<"$f")
+    tt+="$lbl : $v tr/min\n"
+    [[ $lbl == cpu_fan ]] && txt="󰈐 $v"
+  done
+  local prof; prof=$(cat /sys/firmware/acpi/platform_profile 2>/dev/null || echo "?")
+  json "${txt:-󰈐 ?}" "${tt}profil plateforme : $prof" "$prof"
+}
+
+mod_conns() {
+  local est lis top
+  est=$(ss -Htn state established 2>/dev/null | wc -l)
+  lis=$(ss -Htln 2>/dev/null | wc -l)
+  top=$(ss -Htn state established 2>/dev/null | awk '{print $4}' \
+        | sed -E 's/:[0-9]+$//; s/^\[|\]$//g' | sort | uniq -c | sort -rn | head -6 \
+        | awk '{printf "%4d  %s\\n", $1, $2}')
+  local cls=normal; (( est > 150 )) && cls=warning
+  json "󰒍 $est" "TCP établies : $est\nTCP en écoute : $lis\n\nTop pairs distants :\n$top" "$cls"
+}
+
+mod_ip_local() {
+  local dev ip
+  read -r dev ip < <(ip -4 route get 1.1.1.1 2>/dev/null \
+    | awk '{for(i=1;i<=NF;i++){if($i=="dev")d=$(i+1);if($i=="src")s=$(i+1)}} END{print d, s}') || true
+  [[ -n "${ip:-}" ]] || { json "󰈂 offline" "Pas de route par défaut" disconnected; return; }
+  json "󰩟 $ip" "interface : $dev\nIPv4 locale : $ip\n$(ip -br -6 addr show dev "$dev" scope global 2>/dev/null | awk '{print "IPv6 : "$3}')" connected
+}
+
+mod_ip_public() {
+  local cache=$STATE/public-ip mask=$STATE/public-ip.unmasked ip age
+  if [[ ${1:-} == toggle ]]; then
+    if [[ -e $mask ]]; then rm -f "$mask"; else touch "$mask"; fi
+    pkill -RTMIN+8 -x waybar || true; return
+  fi
+  age=999999
+  [[ -s $cache ]] && age=$(( $(date +%s) - $(stat -c %Y "$cache") ))
+  if (( age > 600 )); then
+    # Service tiers interrogé toutes les 10 min max. Désactivable :
+    #   touch ~/.config/soc/no-public-ip
+    if [[ ! -e ~/.config/soc/no-public-ip ]]; then
+      if curl -fsS --max-time 4 https://api.ipify.org > "$cache.tmp" 2>/dev/null; then
+        mv "$cache.tmp" "$cache"
+      else
+        rm -f "$cache.tmp"
+      fi
+    fi
+  fi
+  ip=$(cat "$cache" 2>/dev/null || true)
+  [[ -n "$ip" ]] || { json "󰖟 ?" "IP publique inconnue (hors ligne ou désactivée)" unknown; return; }
+  if [[ -e $mask ]]; then
+    json "󰖟 $ip" "IP publique (clic : masquer)\nsource : api.ipify.org" unmasked
+  else
+    json "󰖟 ${ip%.*.*}.x.x" "IP publique masquée (clic : afficher)" masked
+  fi
+}
+
+mod_vpn() {
+  local ifs nm
+  ifs=$(ip -br link 2>/dev/null | awk '$1 ~ /^(wg|tun|tap|tailscale|nordlynx|proton)/ && $2 != "DOWN" {print $1}' | paste -sd, -)
+  nm=$(nmcli -t -f TYPE,NAME connection show --active 2>/dev/null \
+       | awk -F: '$1 ~ /vpn|wireguard/ {print $2}' | paste -sd, - || true)
+  if [[ -n "$ifs$nm" ]]; then
+    json "󰦝 VPN" "VPN actif\ninterfaces : ${ifs:--}\nNetworkManager : ${nm:--}" on
+  else
+    json "󰦞" "Aucun VPN actif" off
+  fi
+}
+
+mod_rec() {
+  if pgrep -x wf-recorder >/dev/null; then
+    json "● REC" "Enregistrement en cours (Super+Shift+R pour arrêter)" recording
+  else
+    json "" "" idle
+  fi
+}
+
+mod_dnd() {
+  if [[ ${1:-} == toggle ]]; then "$HOME/.local/bin/dnd-toggle"; return; fi
+  if makoctl mode 2>/dev/null | grep -qx do-not-disturb; then
+    json "󰂛" "Ne pas déranger : ACTIF (clic : désactiver)" on
+  else
+    json "󰂚" "Notifications actives (clic : ne pas déranger)\nclic droit : historique" off
+  fi
+}
+
+mod_ssh_fails() {
+  local n
+  n=$(journalctl -q --since "-24h" -t sshd -t sshd-session --no-pager 2>/dev/null \
+      | grep -cE 'Failed password|Invalid user|authentication failure' || true)
+  if ! journalctl -q -n0 --system >/dev/null 2>&1; then
+    json "󰒃 n/a" "Journal système non lisible (groupe systemd-journal requis)" unknown; return
+  fi
+  local cls=ok; (( n > 0 )) && cls=warning; (( n > 50 )) && cls=critical
+  json "󰒃 $n" "Échecs d'authentification SSH (24 h) : $n\nclic : soc-dashboard" "$cls"
+}
+
+case "${1:-}" in
+  gpu) mod_gpu ;;
+  fans) mod_fans ;;
+  conns) mod_conns ;;
+  ip-local) mod_ip_local ;;
+  ip-public) mod_ip_public "${2:-}" ;;
+  vpn) mod_vpn ;;
+  rec) mod_rec ;;
+  dnd) mod_dnd "${2:-}" ;;
+  ssh-fails) mod_ssh_fails ;;
+  -h|--help|"") usage ;;
+  *) echo "module inconnu : $1" >&2; usage >&2; exit 1 ;;
+esac

@@ -1,0 +1,80 @@
+#!/usr/bin/env bash
+# ╭──────────────────────────────────────────────────────────────────────╮
+# │ bt-menu — gestion Bluetooth (bluetoothctl + fuzzel)                  │
+# │ Usage : bt-menu [-h] [--status]                                      │
+# │   --status  état du contrôleur et appareils connectés (terminal)      │
+# │ Menu : allumer/éteindre, scanner (10 s), appareils appairés           │
+# │ (● = connecté → déconnecter ; sinon connecter), appairer un nouvel    │
+# │ appareil, oublier un appareil, blueman-manager.                       │
+# ╰──────────────────────────────────────────────────────────────────────╯
+set -euo pipefail
+# shellcheck source=../lib/soc/ui.sh
+source "$(dirname "$(readlink -f "$0")")/../lib/soc/ui.sh"
+T=$'\t'   # séparateur de colonnes fuzzel (--with-nth / --accept-nth)
+usage() { sed -n '3,8p' "$0" | sed 's/^# │ \{0,1\}//; s/ *│$//'; }
+need bluetoothctl
+
+powered() { bluetoothctl show 2>/dev/null | grep -q 'Powered: yes'; }
+# devices FILTRE : "MAC NOM" (FILTRE : Paired, Connected… ou vide = tous)
+devices() { bluetoothctl devices ${1:+"$1"} 2>/dev/null | awk '$1=="Device"{ $1=""; sub(/^ /,""); print }'; }
+is_connected() { bluetoothctl info "$1" 2>/dev/null | grep -q 'Connected: yes'; }
+
+case ${1:-} in
+  -h|--help) usage; exit 0 ;;
+  --status)
+    box_title "Bluetooth" "$(powered && echo 'contrôleur : allumé' || echo 'contrôleur : éteint')"
+    rfkill list bluetooth 2>/dev/null | sed 's/^/  /' || true
+    section "Appareils appairés"
+    while read -r mac name; do
+      if is_connected "$mac"; then printf '  %s●%s %s  %s\n' "$C_ACC" "$C_RST" "$mac" "$name"
+      else printf '    %s  %s\n' "$mac" "$name"; fi
+    done < <(devices Paired)
+    exit 0 ;;
+  "") ;;
+  *) usage >&2; exit 1 ;;
+esac
+
+need fuzzel
+if rfkill list bluetooth 2>/dev/null | grep -q 'Soft blocked: yes'; then
+  rfkill unblock bluetooth 2>/dev/null || warn "rfkill unblock impossible"
+fi
+
+entries=()
+if powered; then
+  entries+=("󰂲  Éteindre le Bluetooth${T}off" "󰂰  Scanner (10 s) et appairer…${T}scan")
+  while read -r mac name; do
+    if is_connected "$mac"; then entries+=("● 󰂱  $name${T}disc:$mac")
+    else entries+=("  󰂯  $name${T}conn:$mac"); fi
+  done < <(devices Paired)
+  entries+=("󰆴  Oublier un appareil…${T}forget")
+else
+  entries+=("󰂯  Allumer le Bluetooth${T}on")
+fi
+entries+=("󰒓  blueman-manager${T}blueman")
+
+sel=$(printf '%s\n' "${entries[@]}" | menu "󰂯 bt" --with-nth=1 --accept-nth=2 --width 46) || exit 0
+case $sel in
+  on)  bluetoothctl power on >/dev/null && notify "󰂯  Bluetooth allumé" "" -a osd -u low ;;
+  off) bluetoothctl power off >/dev/null && notify "󰂲  Bluetooth éteint" "" -a osd -u low ;;
+  conn:*) mac=${sel#conn:}
+          if bluetoothctl connect "$mac" >/dev/null; then notify "󰂱  Connecté" "$(bluetoothctl info "$mac" | sed -n 's/.*Alias: //p')"
+          else notify "󰂲  Échec de connexion" "$mac" -u critical; fi ;;
+  disc:*) mac=${sel#disc:}; bluetoothctl disconnect "$mac" >/dev/null && notify "󰂲  Déconnecté" "$mac" -a osd -u low ;;
+  scan)
+    notify "󰂰  Recherche d'appareils…" "10 secondes" -a osd -u low
+    bluetoothctl --timeout 10 scan on >/dev/null 2>&1 || true
+    mapfile -t found < <(devices | while read -r mac name; do
+      bluetoothctl info "$mac" | grep -q 'Paired: yes' || echo "󰂯  $name ($mac)${T}$mac"; done)
+    (( ${#found[@]} )) || { notify "Aucun nouvel appareil" ""; exit 0; }
+    mac=$(printf '%s\n' "${found[@]}" | menu "appairer" --with-nth=1 --accept-nth=2 --width 50) || exit 0
+    if bluetoothctl pair "$mac" >/dev/null && bluetoothctl trust "$mac" >/dev/null && bluetoothctl connect "$mac" >/dev/null; then
+      notify "󰂱  Appairé et connecté" "$mac"
+    else
+      notify "󰂲  Échec d'appairage" "$mac (utilisez blueman-manager si un code est demandé)" -u critical
+    fi ;;
+  forget)
+    mac=$(devices Paired | awk '{m=$1; $1=""; print "󰆴 " $0 " (" m ")\t" m}' \
+          | menu "oublier" --with-nth=1 --accept-nth=2 --width 50) || exit 0
+    bluetoothctl remove "$mac" >/dev/null && notify "󰆴  Appareil oublié" "$mac" -a osd -u low ;;
+  blueman) exec blueman-manager ;;
+esac

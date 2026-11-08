@@ -1,0 +1,84 @@
+#!/usr/bin/env bash
+# ╭──────────────────────────────────────────────────────────────────────╮
+# │ screenshot-menu — captures (grim/slurp/swappy) et vidéo (wf-recorder)│
+# │ Usage : screenshot-menu [action] [-h]                                │
+# │   (sans action) menu fuzzel                                           │
+# │   region-copy  zone → presse-papiers      region-save  zone → fichier │
+# │   region-edit  zone → swappy (annoter)    full-save    écran → fichier│
+# │   full-copy    écran → presse-papiers     window-save  fenêtre active │
+# │   record-toggle  démarre/arrête l'enregistrement d'une zone (sans son)│
+# │   record-full    démarre/arrête l'enregistrement de l'écran + audio   │
+# │ Fichiers : ~/Pictures/Screenshots/ et ~/Videos/Recordings/            │
+# ╰──────────────────────────────────────────────────────────────────────╯
+set -euo pipefail
+# shellcheck source=../lib/soc/ui.sh
+source "$(dirname "$(readlink -f "$0")")/../lib/soc/ui.sh"
+T=$'\t'   # séparateur de colonnes fuzzel (--with-nth / --accept-nth)
+usage() { sed -n '3,11p' "$0" | sed 's/^# │ \{0,1\}//; s/ *│$//'; }
+
+SHOTS=$HOME/Pictures/Screenshots
+VIDS=$HOME/Videos/Recordings
+mkdir -p "$SHOTS" "$VIDS"
+stamp() { date +%Y%m%d-%H%M%S; }
+
+# focused_output : nom de la sortie focalisée
+focused_output() { swaymsg -t get_outputs -r | jq -r '.[] | select(.focused) | .name'; }
+# window_geom : géométrie "X,Y LxH" de la fenêtre focalisée
+window_geom() {
+  swaymsg -t get_tree -r | jq -r '.. | select(.focused? == true) | .rect | "\(.x),\(.y) \(.width)x\(.height)"' | head -1
+}
+
+# saved FICHIER : notification avec action "ouvrir le dossier"
+saved() {
+  notify "󰄀  Capture enregistrée" "$(basename "$1")" -a screenshot -i "$1"
+}
+
+record_toggle() {
+  if pgrep -x wf-recorder >/dev/null; then
+    pkill -INT -x wf-recorder
+    notify "󰻃  Enregistrement terminé" "$VIDS" -a screenshot
+  else
+    local f geom=() audio=()
+    f=$VIDS/rec-$(stamp).mp4
+    if [[ $1 == region ]]; then
+      geom=(-g "$(slurp -d)") || exit 0
+    else
+      geom=(-o "$(focused_output)"); audio=(--audio)
+    fi
+    notify "󰑋  Enregistrement démarré" "Super+Shift+R pour arrêter" -a osd -u low
+    setsid -f wf-recorder "${geom[@]}" "${audio[@]}" -f "$f" >/dev/null 2>&1
+  fi
+  sleep 0.5; pkill -RTMIN+8 -x waybar || true
+}
+
+action=${1:-}
+if [[ -z $action ]]; then
+  need fuzzel
+  sel=$(printf '%s\n' \
+    "󰆟  Zone → presse-papiers${T}region-copy" \
+    "󰆓  Zone → fichier${T}region-save" \
+    "󰏫  Zone → annoter (swappy)${T}region-edit" \
+    "󰹑  Écran → fichier${T}full-save" \
+    "󰅍  Écran → presse-papiers${T}full-copy" \
+    "󱂬  Fenêtre active → fichier${T}window-save" \
+    "󰑋  Enregistrer une zone (on/off)${T}record-toggle" \
+    "󰕧  Enregistrer l'écran + son (on/off)${T}record-full" \
+    | menu "󰄀 capture" --lines 8 --width 44 --with-nth=1 --accept-nth=2) || exit 0
+  action=$sel
+  sleep 0.2   # laisse fuzzel disparaître avant la capture
+fi
+
+case $action in
+  -h|--help) usage ;;
+  region-copy) need grim slurp wl-copy; g=$(slurp -d) || exit 0; grim -g "$g" - | wl-copy -t image/png
+               notify "󰆟  Zone copiée" "" -a osd -u low ;;
+  region-save) need grim slurp; g=$(slurp -d) || exit 0; f=$SHOTS/capture-$(stamp).png; grim -g "$g" "$f"; saved "$f" ;;
+  region-edit) need grim slurp swappy; g=$(slurp -d) || exit 0; grim -g "$g" - | swappy -f - ;;
+  full-save)   need grim jq; f=$SHOTS/capture-$(stamp).png; grim -o "$(focused_output)" "$f"; saved "$f" ;;
+  full-copy)   need grim jq wl-copy; grim -o "$(focused_output)" - | wl-copy -t image/png
+               notify "󰅍  Écran copié" "" -a osd -u low ;;
+  window-save) need grim jq; f=$SHOTS/capture-$(stamp).png; grim -g "$(window_geom)" "$f"; saved "$f" ;;
+  record-toggle) need wf-recorder slurp; record_toggle region ;;
+  record-full)   need wf-recorder jq; record_toggle full ;;
+  *) usage >&2; exit 1 ;;
+esac

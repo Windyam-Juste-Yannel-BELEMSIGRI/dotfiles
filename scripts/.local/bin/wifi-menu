@@ -1,0 +1,99 @@
+#!/usr/bin/env bash
+# ╭──────────────────────────────────────────────────────────────────────╮
+# │ wifi-menu — connexion Wi-Fi rapide (NetworkManager + fuzzel)         │
+# │ Usage : wifi-menu [-h] [--list]                                      │
+# │   --list  affiche les réseaux dans le terminal (sans menu)           │
+# │ Menu : réseaux triés par signal (● = connecté,  = sécurisé),        │
+# │ activer/couper le Wi-Fi, rescanner, réseau masqué, nmtui.            │
+# │ Le mot de passe est saisi dans fuzzel (--password) puis transmis à   │
+# │ nmcli par l'entrée standard (--ask), jamais en argument de commande  │
+# │ (invisible dans ps) ; NM le stocke dans /etc/NetworkManager (root).  │
+# ╰──────────────────────────────────────────────────────────────────────╯
+set -euo pipefail
+# shellcheck source=../lib/soc/ui.sh
+source "$(dirname "$(readlink -f "$0")")/../lib/soc/ui.sh"
+T=$'\t'   # séparateur de colonnes fuzzel (--with-nth / --accept-nth)
+usage() { sed -n '3,10p' "$0" | sed 's/^# │ \{0,1\}//; s/ *│$//'; }
+need nmcli
+
+# networks : "INUSE<TAB>SIGNAL<TAB>SECURITY<TAB>SSID" (doublons fusionnés)
+networks() {
+  nmcli -t -e yes -f IN-USE,SIGNAL,SECURITY,SSID device wifi list --rescan auto 2>/dev/null \
+    | sed 's/\\:/\x1f/g' \
+    | awk -F: 'BEGIN{OFS="\t"} $4!="" { gsub(/\x1f/, ":", $4); print $1, $2, $3, $4 }' \
+    | sort -t$'\t' -k1,1r -k2,2nr | awk -F'\t' '!seen[$4]++' | sort -t$'\t' -k2,2nr
+}
+
+# sig_icon PCT : icône de signal
+sig_icon() {
+  local s=$1
+  if (( s >= 80 )); then echo "󰤨"; elif (( s >= 60 )); then echo "󰤥"
+  elif (( s >= 40 )); then echo "󰤢"; elif (( s >= 20 )); then echo "󰤟"; else echo "󰤯"; fi
+}
+
+# connect SSID SECURITY : profil connu → up ; sinon demande la clé si besoin
+connect() {
+  local ssid=$1 sec=$2 pw
+  if nmcli -t -f NAME connection show | grep -Fxq -- "$ssid"; then
+    nmcli connection up id "$ssid" >/dev/null && { notify "󰤨  Connecté" "$ssid"; return; }
+  fi
+  if [[ -n $sec && $sec != "--" ]]; then
+    need fuzzel
+    pw=$(fuzzel --dmenu --password --prompt-only "  $ssid : " --width 40) || return 0
+    [[ -n $pw ]] || return 0
+    if printf '%s\n' "$pw" | nmcli --ask device wifi connect "$ssid" >/dev/null 2>&1; then
+      notify "󰤨  Connecté" "$ssid"
+    else
+      notify "󰤮  Échec de connexion" "$ssid (mot de passe ?)" -u critical
+      nmcli connection delete id "$ssid" >/dev/null 2>&1 || true
+    fi
+  else
+    nmcli device wifi connect "$ssid" >/dev/null && notify "󰤨  Connecté (réseau ouvert)" "$ssid"
+  fi
+}
+
+case ${1:-} in
+  -h|--help) usage; exit 0 ;;
+  --list)
+    box_title "Wi-Fi" "$(nmcli -t -f WIFI general)"
+    networks | while IFS=$'\t' read -r u s sec ssid; do
+      printf '  %s %s %3s%%  %-32s %s%s%s\n' "$([[ $u == '*' ]] && echo "$C_ACC●$C_RST" || echo ' ')" \
+        "$(sig_icon "$s")" "$s" "$ssid" "$C_MUTED" "$sec" "$C_RST"
+    done
+    exit 0 ;;
+  "") ;;
+  *) usage >&2; exit 1 ;;
+esac
+
+need fuzzel
+state=$(nmcli -t -f WIFI general)
+entries=()
+if [[ $state == enabled ]]; then
+  entries+=("󰖪  Couper le Wi-Fi${T}off" "󰑐  Rescanner${T}rescan")
+  while IFS=$'\t' read -r u s sec ssid; do
+    mark=" "; [[ $u == '*' ]] && mark="●"
+    lock=" "; [[ -n $sec && $sec != "--" ]] && lock=""
+    entries+=("$mark $(sig_icon "$s") $lock  $ssid  ($s%)${T}net:$sec:$ssid")
+  done < <(networks)
+  entries+=("󰛵  Réseau masqué…${T}hidden")
+else
+  entries+=("󰖩  Activer le Wi-Fi${T}on")
+fi
+entries+=("󰒓  nmtui (avancé)${T}nmtui")
+
+ip=$(nmcli -g IP4.ADDRESS device show "$(nmcli -t -f DEVICE,TYPE device | awk -F: '$2=="wifi"{print $1; exit}')" 2>/dev/null | head -1)
+sel=$(printf '%s\n' "${entries[@]}" | menu "󰤨 ${ip:-wifi}" --with-nth=1 --accept-nth=2 --width 52) || exit 0
+
+case $sel in
+  off) nmcli radio wifi off; notify "󰖪  Wi-Fi coupé" "" -a osd -u low ;;
+  on) nmcli radio wifi on; notify "󰖩  Wi-Fi activé" "" -a osd -u low ;;
+  rescan) nmcli device wifi rescan 2>/dev/null || true; sleep 2; exec "$0" ;;
+  nmtui) exec foot --app-id=floating-term nmtui ;;
+  hidden)
+    ssid=$(fuzzel --dmenu --prompt-only "SSID masqué : " --width 40) || exit 0
+    [[ -n $ssid ]] && connect "$ssid" "WPA" ;;
+  net:*)
+    rest=${sel#net:}; sec=${rest%%:*}; ssid=${rest#*:}
+    connect "$ssid" "$sec" ;;
+esac
+pkill -RTMIN+8 -x waybar || true

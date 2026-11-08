@@ -1,0 +1,49 @@
+#!/usr/bin/env bash
+# ╭──────────────────────────────────────────────────────────────────────╮
+# │ keys-help — aide des raccourcis Sway (Super+F1)                      │
+# │ Usage : keys-help [--print] [-h]                                     │
+# │   (défaut) liste dans fuzzel ; Entrée exécute le raccourci choisi     │
+# │   --print  affiche le tableau dans le terminal                        │
+# │ Source : lignes "#? description" placées au-dessus des bindsym dans   │
+# │ ~/.config/sway/config.d/50-keys.conf                                  │
+# ╰──────────────────────────────────────────────────────────────────────╯
+set -euo pipefail
+# shellcheck source=../lib/soc/ui.sh
+source "$(dirname "$(readlink -f "$0")")/../lib/soc/ui.sh"
+usage() { sed -n '3,7p' "$0" | sed 's/^# │ \{0,1\}//; s/ *│$//'; }
+
+KEYS=$HOME/.config/sway/config.d/50-keys.conf
+[[ -r $KEYS ]] || die "introuvable : $KEYS"
+
+# table : "TOUCHE<TAB>DESCRIPTION<TAB>COMMANDE" pour chaque bindsym documenté
+table() {
+  awk '
+    /^[[:space:]]*#\? / { sub(/^[[:space:]]*#\? /, ""); d=$0; next }
+    /^[[:space:]]*bindsym/ && d != "" {
+      line=$0; sub(/^[[:space:]]*bindsym[[:space:]]+/, "", line)
+      while (line ~ /^--/) sub(/^--[^[:space:]]+[[:space:]]+/, "", line)
+      key=line; sub(/[[:space:]].*/, "", key)
+      cmd=line; sub(/^[^[:space:]]+[[:space:]]+/, "", cmd)
+      gsub(/\$mod/, "Super", key)
+      printf "%s\t%s\t%s\n", key, d, cmd; d=""; next }
+    { d="" }' "$KEYS"
+}
+
+case ${1:-} in
+  -h|--help) usage ;;
+  --print)
+    box_title "Raccourcis Sway" "$KEYS"
+    table | while IFS=$'\t' read -r k d _; do
+      printf '  %s%-28s%s %s\n' "$C_ACC" "$k" "$C_RST" "$d"
+    done ;;
+  "")
+    need fuzzel swaymsg
+    sel=$(table | awk -F'\t' '{printf "%-26s  %s\n", $1, $2}' | menu "󰌌 keys" --width 72 --lines 18) || exit 0
+    key=${sel%% *}
+    cmd=$(table | awk -F'\t' -v k="$key" '$1==k {print $3; exit}')
+    [[ -n $cmd ]] || exit 0
+    # Les variables sway ne sont pas développées par swaymsg : on le fait ici.
+    cmd=${cmd//\$term/foot}; cmd=${cmd//\$menu/fuzzel}; cmd=${cmd//\$bin/$HOME/.local/bin}
+    swaymsg -- "$cmd" >/dev/null ;;
+  *) usage >&2; exit 1 ;;
+esac

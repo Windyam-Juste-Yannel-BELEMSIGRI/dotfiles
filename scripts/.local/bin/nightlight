@@ -1,0 +1,20 @@
+#!/usr/bin/env bash
+# ╭──────────────────────────────────────────────────────────────────────╮
+# │ nightlight — active/désactive l'éclairage nocturne (wlsunset.service)│
+# │ Usage : nightlight [toggle|on|off|status]                            │
+# │ Horaires : 19:00 → 07:00, 4000 K (voir wlsunset.service)             │
+# ╰──────────────────────────────────────────────────────────────────────╯
+set -euo pipefail
+# shellcheck source=../lib/soc/ui.sh
+source "$(dirname "$(readlink -f "$0")")/../lib/soc/ui.sh"
+usage() { sed -n '3,4p' "$0" | sed 's/^# │ \{0,1\}//; s/ *│$//'; }
+
+active() { systemctl --user -q is-active wlsunset.service; }
+case ${1:-toggle} in
+  -h|--help) usage ;;
+  status) if active; then echo on; else echo off; fi ;;
+  on) systemctl --user start wlsunset.service; notify "󰖔  Éclairage nocturne : ON" "" -a osd -u low ;;
+  off) systemctl --user stop wlsunset.service; notify "󰖨  Éclairage nocturne : OFF" "" -a osd -u low ;;
+  toggle) if active; then "$0" off; else "$0" on; fi ;;
+  *) usage >&2; exit 1 ;;
+esac

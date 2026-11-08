@@ -1,0 +1,81 @@
+#!/usr/bin/env bash
+# ╭──────────────────────────────────────────────────────────────────────╮
+# │ sitrep — "rapport de situation" à l'ouverture du terminal            │
+# │ Usage : sitrep [--short] [-h]                                        │
+# │   (défaut) bannière + fastfetch (compact) + points de vigilance       │
+# │   --short  uniquement les points de vigilance (une ligne chacun)      │
+# │ Appelé une fois par session par ~/.config/bash/50-sitrep.sh          │
+# │ (désactiver : export SITREP=0 dans ~/.config/bash/local.sh).          │
+# │ Rapide (< 0,3 s) : aucune requête réseau, cache apt local uniquement. │
+# ╰──────────────────────────────────────────────────────────────────────╯
+set -euo pipefail
+# shellcheck source=../lib/soc/ui.sh
+source "$(dirname "$(readlink -f "$0")")/../lib/soc/ui.sh"
+usage() { sed -n '3,9p' "$0" | sed 's/^# │ \{0,1\}//; s/ *│$//'; }
+
+SHORT=0
+case ${1:-} in -h|--help) usage; exit 0 ;; --short) SHORT=1 ;; "") ;; *) usage >&2; exit 1 ;; esac
+
+# line NIVEAU TEXTE : puce colorée (ok|warn|crit|info)
+line() {
+  local c=$C_ACC s="·"
+  case $1 in ok) c=$C_GRN s="✔" ;; warn) c=$C_YEL s="!" ;; crit) c=$C_RED s="✖" ;; esac
+  printf '  %s[%s]%s %s\n' "$c" "$s" "$C_RST" "$2"
+}
+
+if (( ! SHORT )); then
+  banner "SITREP // $(whoami)@$(hostname -s) // $(date '+%a %d %b %Y %H:%M') // UTC $(date -u +%H:%M)"
+  if command -v fastfetch >/dev/null; then
+    fastfetch --logo none --structure "OS:Kernel:Uptime:Packages:WM:CPU:GPU:Memory:Disk:Battery:LocalIp" \
+      --color-keys "38;2;125;211;192" 2>/dev/null | sed 's/^/  /'
+  fi
+  section "VIGILANCE"
+fi
+
+# Mises à jour (cache apt local, sans réseau)
+upg=$(apt list --upgradable 2>/dev/null | grep -c upgradable || true)
+sec=$(apt list --upgradable 2>/dev/null | grep -c -- '-security' || true)
+if (( sec > 0 )); then line crit "$upg mise(s) à jour dont $sec de sécurité → sudo apt update && sudo apt upgrade"
+elif (( upg > 0 )); then line warn "$upg mise(s) à jour disponible(s) (cache local)"
+else line ok "système à jour (selon le dernier apt update)"; fi
+
+# Unités systemd en échec
+f=$(systemctl --failed --no-legend 2>/dev/null | wc -l)
+fu=$(systemctl --user --failed --no-legend 2>/dev/null | wc -l)
+if (( f + fu > 0 )); then line crit "unités en échec : $f système, $fu utilisateur (systemctl --failed)"
+else line ok "aucune unité systemd en échec"; fi
+
+# Exposition réseau
+# TCP en écoute hors loopback + UDP < 1024 (hors clients DHCP 68/546) ;
+# les sockets UDP clientes éphémères (navigateur…) ne sont pas comptées.
+lis=$(ss -Htuln | awk '{split($5,a,":"); port=a[length(a)]}
+  $5 ~ /^(127\.|\[::1\]|\[?::ffff:127)/ {next}
+  $1=="tcp" || ($1=="udp" && port+0 < 1024 && port!=68 && port!=546) {n++} END{print n+0}')
+if (( lis > 0 )); then line warn "$lis service(s) exposé(s) hors loopback (netwatch)"
+else line ok "aucun service exposé hors loopback"; fi
+
+# Authentification (journal)
+if journalctl -q -n0 --system >/dev/null 2>&1; then
+  af=$(journalctl -q --since -24h -t sshd -t sshd-session -t sudo -t su -t login 2>/dev/null \
+       | grep -ciE 'Failed password|Invalid user|incorrect password|authentication failure' || true)
+  if (( af > 0 )); then line warn "$af échec(s) d'authentification sur 24 h (soc-dashboard)"
+  else line ok "aucun échec d'authentification sur 24 h"; fi
+else
+  line info "journal système non lisible (groupe systemd-journal)"
+fi
+
+# Dernière connexion
+last_login=$(lastlog -u "$USER" 2>/dev/null | awk 'NR==2{ $1=""; print }' | sed 's/^ *//' || true)
+[[ -n ${last_login:-} ]] && line info "dernière connexion : $last_login"
+
+# Disque / batterie
+dp=$(df --output=pcent / | tail -1 | tr -dc 0-9)
+if (( dp >= 90 )); then line crit "disque / plein à $dp%"; elif (( dp >= 75 )); then line warn "disque / à $dp%"; fi
+if [[ -r /sys/class/power_supply/BAT0/capacity ]]; then
+  b=$(</sys/class/power_supply/BAT0/capacity); bs=$(</sys/class/power_supply/BAT0/status)
+  if [[ $bs == Discharging ]] && (( b <= 20 )); then line warn "batterie $b% ($bs)"; fi
+fi
+
+# VPN
+if ip -br link | awk '$1 ~ /^(wg|tun|tap)/ && $2 != "DOWN"' | grep -q .; then line info "VPN actif"; fi
+(( SHORT )) || echo

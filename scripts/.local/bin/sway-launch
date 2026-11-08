@@ -1,0 +1,98 @@
+#!/usr/bin/env bash
+# ╭──────────────────────────────────────────────────────────────────────╮
+# │ sway-launch — démarre Sway avec l'environnement Wayland du poste     │
+# │ Appelé par ~/.bash_profile sur tty1, ou à la main depuis un TTY.     │
+# │                                                                       │
+# │ Usage : sway-launch [--fallback] [--check] [-h]                       │
+# │   --fallback  démarre avec ~/.config/sway/config.fallback             │
+# │   --check     affiche l'environnement et valide la config (sans lancer)│
+# │                                                                       │
+# │ Sélection automatique du fallback si :                                │
+# │   * le fichier ~/.config/sway/use-fallback existe, ou                 │
+# │   * `sway -C` échoue sur la config principale.                        │
+# │ GPU : l'iGPU Intel est le GPU principal (rendu) ; la NVIDIA reste     │
+# │ secondaire pour ses sorties (HDMI/DP). SWAY_IGPU_ONLY=1 dans          │
+# │ ~/.config/sway/env pour n'utiliser QUE l'Intel.                       │
+# │ Journal : ~/.local/state/sway/sway.log (5 derniers conservés)         │
+# ╰──────────────────────────────────────────────────────────────────────╯
+set -euo pipefail
+
+usage() { sed -n '3,20p' "$0" | sed 's/^# │ \{0,1\}//; s/ *│$//'; }
+
+MODE=normal CHECK=0
+for a in "$@"; do
+  case "$a" in
+    -h|--help) usage; exit 0 ;;
+    --fallback) MODE=fallback ;;
+    --check) CHECK=1 ;;
+    *) echo "option inconnue : $a" >&2; usage >&2; exit 1 ;;
+  esac
+done
+
+command -v sway >/dev/null || { echo "sway introuvable" >&2; exit 127; }
+
+CFG=$HOME/.config/sway/config
+FALLBACK=$HOME/.config/sway/config.fallback
+[[ -e $HOME/.config/sway/use-fallback ]] && MODE=fallback
+
+# drm_card_for VENDOR : /dev/dri/cardN dont le vendor PCI vaut VENDOR.
+# (Les chemins /dev/dri/by-path contiennent des ":" que wlroots prend pour
+#  des séparateurs : on résout donc vers cardN au lancement.)
+drm_card_for() {
+  local c
+  for c in /sys/class/drm/card[0-9]; do
+    [[ -r $c/device/vendor && $(<"$c/device/vendor") == "$1" ]] && { echo "/dev/dri/${c##*/}"; return 0; }
+  done
+  return 1
+}
+
+# ── Environnement de session Wayland ────────────────────────────────────
+export XDG_CURRENT_DESKTOP=sway
+export XDG_SESSION_DESKTOP=sway
+export XDG_SESSION_TYPE=wayland
+export MOZ_ENABLE_WAYLAND=1
+export QT_QPA_PLATFORM="wayland;xcb"
+export QT_WAYLAND_DISABLE_WINDOWDECORATION=1
+export QT_STYLE_OVERRIDE=adwaita-dark
+export SDL_VIDEODRIVER="wayland,x11"
+export _JAVA_AWT_WM_NONREPARENTING=1
+export ELECTRON_OZONE_PLATFORM_HINT=auto
+export XCURSOR_THEME=Bibata-Modern-Classic XCURSOR_SIZE=24
+
+# Surcharges utilisateur (KEY=VALUE, non versionnées)
+if [[ -r $HOME/.config/sway/env ]]; then
+  set -a; # shellcheck disable=SC1091
+  source "$HOME/.config/sway/env"; set +a
+fi
+
+intel=$(drm_card_for 0x8086 || true)
+nvidia=$(drm_card_for 0x10de || true)
+if [[ -n $intel ]]; then
+  if [[ ${SWAY_IGPU_ONLY:-0} == 1 || -z $nvidia ]]; then
+    export WLR_DRM_DEVICES=$intel
+  else
+    export WLR_DRM_DEVICES=$intel:$nvidia
+  fi
+fi
+
+if [[ $MODE == normal ]] && ! sway -C -c "$CFG" >/dev/null 2>&1; then
+  echo "⚠ config principale invalide (sway -C) → démarrage en FALLBACK" >&2
+  MODE=fallback
+fi
+[[ $MODE == fallback ]] && CFG=$FALLBACK
+
+if (( CHECK )); then
+  echo "config            : $CFG ($MODE)"
+  echo "WLR_DRM_DEVICES   : ${WLR_DRM_DEVICES:-<non défini>}"
+  echo "intel / nvidia    : ${intel:-?} / ${nvidia:-?}"
+  sway -C -c "$CFG" && echo "sway -C           : OK"
+  exit 0
+fi
+
+# ── Journal rotatif ────────────────────────────────────────────────────
+LOGDIR=${XDG_STATE_HOME:-$HOME/.local/state}/sway
+mkdir -p "$LOGDIR"
+for i in 4 3 2 1; do [[ -f $LOGDIR/sway.log.$i ]] && mv -f "$LOGDIR/sway.log.$i" "$LOGDIR/sway.log.$((i + 1))"; done
+[[ -f $LOGDIR/sway.log ]] && mv -f "$LOGDIR/sway.log" "$LOGDIR/sway.log.1"
+
+exec sway -c "$CFG" >"$LOGDIR/sway.log" 2>&1

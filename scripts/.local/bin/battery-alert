@@ -1,0 +1,48 @@
+#!/usr/bin/env bash
+# ╭──────────────────────────────────────────────────────────────────────╮
+# │ battery-alert — alertes de batterie faible (notifications mako)      │
+# │ Usage : battery-alert [--daemon|--once] [-h]                         │
+# │   --once   (défaut) affiche l'état et sort                            │
+# │   --daemon boucle (60 s) : avertit à 20 %, critique à 10 %, et        │
+# │            notifie branchement/débranchement. (battery-alert.service) │
+# ╰──────────────────────────────────────────────────────────────────────╯
+set -euo pipefail
+# shellcheck source=../lib/soc/ui.sh
+source "$(dirname "$(readlink -f "$0")")/../lib/soc/ui.sh"
+usage() { sed -n '3,6p' "$0" | sed 's/^# │ \{0,1\}//; s/ *│$//'; }
+
+BAT=$(find /sys/class/power_supply -maxdepth 1 -name 'BAT*' | head -1)
+[[ -n $BAT ]] || die "aucune batterie détectée"
+WARN=20 CRIT=10
+
+state() { echo "$(<"$BAT/capacity") $(<"$BAT/status")"; }
+
+case ${1:---once} in
+  -h|--help) usage ;;
+  --once) read -r c s < <(state); echo "batterie : $c% ($s)" ;;
+  --daemon)
+    last_level=ok last_status=
+    while :; do
+      read -r c s < <(state)
+      if [[ -n $last_status && $s != "$last_status" ]]; then
+        case $s in
+          Charging) notify "󰂄  Secteur branché" "batterie $c%" -a osd -u low ;;
+          Discharging) notify "󰁹  Sur batterie" "batterie $c%" -a osd -u low ;;
+        esac
+      fi
+      if [[ $s == Discharging ]]; then
+        if (( c <= CRIT )) && [[ $last_level != crit ]]; then
+          notify "󰂃  Batterie CRITIQUE : $c%" "Branchez le chargeur maintenant." -u critical
+          last_level=crit
+        elif (( c <= WARN && c > CRIT )) && [[ $last_level == ok ]]; then
+          notify "󰁻  Batterie faible : $c%" "Pensez à brancher le chargeur." -u normal
+          last_level=warn
+        fi
+      else
+        last_level=ok
+      fi
+      last_status=$s
+      sleep 60
+    done ;;
+  *) usage >&2; exit 1 ;;
+esac

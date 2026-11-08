@@ -1,0 +1,29 @@
+#!/usr/bin/env bash
+# ╭──────────────────────────────────────────────────────────────────────╮
+# │ clip-menu — historique du presse-papiers (cliphist + fuzzel)         │
+# │ Usage : clip-menu [pick|delete|wipe] [-h]                            │
+# │   pick   (défaut) choisir une entrée → copiée dans le presse-papiers  │
+# │   delete supprimer une entrée de l'historique                         │
+# │   wipe   effacer tout l'historique (confirmation)                     │
+# │ Astuce sécurité : après avoir copié un secret, `clip-menu delete`.    │
+# ╰──────────────────────────────────────────────────────────────────────╯
+set -euo pipefail
+# shellcheck source=../lib/soc/ui.sh
+source "$(dirname "$(readlink -f "$0")")/../lib/soc/ui.sh"
+usage() { sed -n '3,8p' "$0" | sed 's/^# │ \{0,1\}//; s/ *│$//'; }
+need cliphist wl-copy fuzzel
+
+case ${1:-pick} in
+  -h|--help) usage ;;
+  pick)
+    sel=$(cliphist list | menu "󰅌 clip" --width 70) || exit 0
+    cliphist decode <<<"$sel" | wl-copy ;;
+  delete)
+    sel=$(cliphist list | menu "󰆴 suppr" --width 70) || exit 0
+    cliphist delete <<<"$sel"
+    notify "󰆴  Entrée supprimée de l'historique" "" -a osd -u low ;;
+  wipe)
+    ans=$(printf 'Oui, tout effacer\nAnnuler\n' | menu "Effacer l'historique ?" --lines 2 --width 30) || exit 0
+    [[ $ans == Oui* ]] && cliphist wipe && notify "󰃢  Historique effacé" "" -a osd -u low ;;
+  *) usage >&2; exit 1 ;;
+esac

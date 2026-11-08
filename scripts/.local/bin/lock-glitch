@@ -1,0 +1,111 @@
+#!/usr/bin/env bash
+# ╭──────────────────────────────────────────────────────────────────────╮
+# │ lock-glitch — verrouillage stylé (swaylock 1.8 + effet précalculé)   │
+# │ Usage : lock-glitch [--now] [--screen] [--plain] [--preview F] [-h]  │
+# │   (défaut) image = fond d'écran + glitch RGB + scanlines + bandeau    │
+# │            "LOCKED" ; mise en cache → verrouillage instantané         │
+# │   --screen capture l'écran puis pixelise FORTEMENT (aucun texte       │
+# │            lisible). Désactivé par défaut : un analyste SOC ne laisse │
+# │            pas fuiter le contenu de son écran, même flouté.           │
+# │   --plain  couleur unie (secours, sans ImageMagick)                   │
+# │   --now    n'attend pas : pour swayidle before-sleep / lock           │
+# │   --preview F  génère seulement l'image (mode défaut) dans F, sans    │
+# │            verrouiller (test / documentation)                         │
+# │ swaylock-effects n'existe pas dans Debian 13 : l'effet est donc       │
+# │ généré par ImageMagick puis passé à swaylock -i.                      │
+# ╰──────────────────────────────────────────────────────────────────────╯
+set -euo pipefail
+# shellcheck source=../lib/soc/ui.sh
+source "$(dirname "$(readlink -f "$0")")/../lib/soc/ui.sh"
+usage() { sed -n '3,15p' "$0" | sed 's/^# │ \{0,1\}//; s/ *│$//'; }
+
+MODE=wall PREVIEW='' NOW=0
+while (( $# )); do
+  a=$1; shift
+  case $a in
+    --preview) PREVIEW=${1:?fichier requis}; shift ;;
+    -h|--help) usage; exit 0 ;;
+    --screen) MODE=screen ;;
+    --plain) MODE=plain ;;
+    --now) NOW=1 ;;
+    *) usage >&2; exit 1 ;;
+  esac
+done
+need swaylock
+
+# Déjà verrouillé ? on ne relance pas.
+pgrep -x swaylock >/dev/null && exit 0
+
+BG_DIR=$HOME/.local/share/backgrounds
+command -v magick >/dev/null || MODE=plain
+
+# glitch IN OUT : décalage des canaux R/B, bandes déplacées, scanlines,
+# assombrissement et bandeau central "LOCKED // hôte".
+glitch() {
+  local in=$1 out=$2 w h sl
+  read -r w h < <(magick identify -format '%w %h\n' "${in}[0]")
+  sl=$(mktemp --suffix=.png)
+  # motif de scanlines : 1 ligne sombre toutes les 4 lignes
+  magick -size 4x4 xc:none -fill '#00000059' -draw 'line 0,0 3,0' "$sl"
+  magick "${in}[0]" -alpha off -resize "${w}x${h}^" -gravity center -extent "${w}x${h}" +repage \
+    -channel R -roll +14+0 -channel B -roll -10+0 +channel \
+    \( +clone -gravity northwest -crop "${w}x$((h / 22))+0+$((h * 3 / 10))" +repage -roll +60+0 \) \
+    -gravity northwest -geometry +0+$((h * 3 / 10)) -compose over -composite \
+    \( +clone -crop "${w}x$((h / 40))+0+$((h * 13 / 20))" +repage -roll -90+0 \) \
+    -geometry +0+$((h * 13 / 20)) -compose over -composite \
+    \( -size "${w}x${h}" tile:"$sl" \) -compose over -composite \
+    -fill '#1c1c1e' -colorize 35% \
+    -fill '#7dd3c01f' -draw "rectangle 0,$((h * 21 / 100)) $w,$((h * 21 / 100 + 3))" \
+    -fill '#7dd3c014' -draw "rectangle $((w / 3)),$((h * 23 / 100)) $w,$((h * 23 / 100 + 9))" \
+    -fill '#c070701a' -draw "rectangle 0,$((h * 78 / 100)) $((w * 2 / 3)),$((h * 78 / 100 + 2))" \
+    -fill '#7dd3c01a' -draw "rectangle $((w / 5)),$((h * 81 / 100)) $((w * 4 / 5)),$((h * 81 / 100 + 5))" \
+    -fill '#1c1c1ecc' -draw "rectangle 0,$((h / 2 + 150)) $w,$((h / 2 + 230))" \
+    -font "JetBrainsMono-NF-Bold" -pointsize 34 -fill '#7dd3c0' -gravity center \
+    -annotate +0+190 "󰌾  LOCKED // $(hostname -s) // $(whoami)" \
+    "$out" 2>/dev/null
+  local rc=$?
+  rm -f "$sl"
+  return "$rc"
+}
+
+if [[ -n $PREVIEW ]]; then
+  need magick
+  glitch "$(readlink -f "$BG_DIR/current")" "$PREVIEW" && ok "aperçu : $PREVIEW"
+  exit
+fi
+
+args=(-f)
+case $MODE in
+  plain) args+=(-c 1c1c1e) ;;
+  wall)
+    src=$(readlink -f "$BG_DIR/current" 2>/dev/null || true)
+    if [[ -z $src || ! -f $src ]]; then
+      args+=(-c 1c1c1e)
+    else
+      cache=$BG_DIR/lock-$(basename "${src%.*}").png
+      if [[ ! -f $cache || $src -nt $cache ]]; then
+        if (( NOW )); then
+          # veille imminente : pas d'attente → couleur unie, cache en arrière-plan
+          ( glitch "$src" "$cache" >/dev/null 2>&1 & ) ; cache=
+        else
+          glitch "$src" "$cache" || cache=
+        fi
+      fi
+      if [[ -n $cache ]]; then args+=(-i "$cache" -s fill); else args+=(-c 1c1c1e); fi
+    fi ;;
+  screen)
+    need grim jq
+    tmp=$(mktemp -d "${XDG_RUNTIME_DIR:-/tmp}/lock.XXXXXX"); trap 'rm -rf "$tmp"' EXIT
+    while read -r out; do
+      grim -o "$out" "$tmp/$out.png"
+      # pixelisation 2 % : contenu illisible
+      magick "$tmp/$out.png" -scale 2% -scale 5000% "$tmp/$out-px.png"
+      glitch "$tmp/$out-px.png" "$tmp/$out-lock.png"
+      args+=(-i "$out:$tmp/$out-lock.png")
+    done < <(swaymsg -t get_outputs -r | jq -r '.[] | select(.active) | .name')
+    args+=(-s fill) ;;
+esac
+
+# swaylock -f se détache une fois verrouillé : en mode --screen, on attend
+# qu'il ait chargé les images avant de supprimer le dossier temporaire.
+exec swaylock "${args[@]}"

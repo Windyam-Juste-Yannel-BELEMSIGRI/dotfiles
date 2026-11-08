@@ -1,0 +1,35 @@
+#!/usr/bin/env bash
+# ╭──────────────────────────────────────────────────────────────────────╮
+# │ power-profile — profils power-profiles-daemon (+ ventilateurs ASUS)  │
+# │ Usage : power-profile [get|cycle|power-saver|balanced|performance]   │
+# │ Sur ce portable ASUS, PPD pilote /sys/firmware/acpi/platform_profile │
+# │ (quiet / balanced / performance) = modes ventilateur du firmware.    │
+# ╰──────────────────────────────────────────────────────────────────────╯
+set -euo pipefail
+# shellcheck source=../lib/soc/ui.sh
+source "$(dirname "$(readlink -f "$0")")/../lib/soc/ui.sh"
+
+usage() { sed -n '3,5p' "$0" | sed 's/^# │ \{0,1\}//; s/ *│$//'; }
+need powerprofilesctl
+
+cur=$(powerprofilesctl get)
+case ${1:-get} in
+  -h|--help) usage; exit 0 ;;
+  get) echo "$cur"; exit 0 ;;
+  cycle)
+    case $cur in
+      power-saver) next=balanced ;;
+      balanced) next=performance ;;
+      *) next=power-saver ;;
+    esac ;;
+  power-saver|balanced|performance) next=$1 ;;
+  *) usage >&2; exit 1 ;;
+esac
+
+powerprofilesctl set "$next"
+plat=$(cat /sys/firmware/acpi/platform_profile 2>/dev/null || echo "?")
+case $next in
+  power-saver) icon="󰾆" ;; balanced) icon="󰾅" ;; performance) icon="󰓅" ;;
+esac
+notify "$icon  Profil : $next" "firmware ASUS (ventilateurs) : $plat" -a osd -u low
+echo "$next ($plat)"
