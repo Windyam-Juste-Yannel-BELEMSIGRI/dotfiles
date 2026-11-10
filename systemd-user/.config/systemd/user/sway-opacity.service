@@ -1,0 +1,10 @@
+[Unit]
+Description=Transparence des fenêtres Sway (active / inactive, avec fondu)
+PartOf=sway-session.target
+After=sway-session.target
+
+[Service]
+ExecStart=%h/.local/bin/sway-opacity daemon
+Restart=on-failure
+RestartSec=2
+

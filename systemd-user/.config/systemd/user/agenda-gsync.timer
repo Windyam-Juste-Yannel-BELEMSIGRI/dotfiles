@@ -1,0 +1,8 @@
+[Unit]
+Description=Agenda : synchro Google au démarrage de la session, puis toutes les 30 minutes
+PartOf=sway-session.target
+
+[Timer]
+OnStartupSec=20s
+OnUnitActiveSec=30min
+AccuracySec=30s

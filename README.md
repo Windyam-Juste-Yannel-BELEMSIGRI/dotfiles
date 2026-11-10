@@ -27,6 +27,21 @@ Ensuite, `sudo system/phase10-greetd-root.sh` installe l'écran de connexion **g
 | Retirer la config | `./uninstall.sh` |
 | Retour système | `./rollback.sh status` · `network` · `sources` · `nvidia` · `boot` · `packages` |
 
+## Agenda, transparence et outils SOC / data
+
+| Outil | Rôle | Accès |
+|---|---|---|
+| `agenda` · `agenda-gui` | Agenda local (JSON), récurrences, rappels mako, export/import `.ics` | `Super+C` (interface) · `Super+Ctrl+C` (menu) · module waybar |
+| `agenda gsync` | Google Agenda → agenda local au démarrage puis toutes les 30 min (`agenda gsync set-url` une fois) | minuterie `agenda-gsync.timer` |
+| `sway-opacity` | Fenêtres inactives estompées avec fondu, sur Sway standard (`~/.config/sway/opacity.conf`) | `Super+Shift+O` (activer / couper) |
+| `ioc` | Pivot sur une IP, un domaine, une URL, un hash, une CVE ou une technique ATT&CK | `Super+Q` (depuis le presse-papiers) |
+| `casenote` | Journal d'investigation horodaté UTC en Markdown | `casenote new "Titre"` |
+| `workmode` | Prépare les espaces de travail : SOC, data ou étude | `Super+M` |
+| `dq` | Profil rapide d'un CSV / JSON : types, vides, doublons | `dq fichier.csv` |
+
+Thème étendu à btop (`glass-soc.theme`), GTK 3/4 (`gtk.css`) et psql (`~/.psqlrc`).
+Détails, tests et limites : `docs/RAPPORT-NAVIGATEURS-AGENDA.md`.
+
 ## Arborescence
 
 Chaque dossier de premier niveau est un paquet **GNU stow** (`stow --no-folding`, cible `$HOME`), sauf `system/` et `docs/`.

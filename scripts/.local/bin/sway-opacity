@@ -1,0 +1,112 @@
+#!/usr/bin/env python3
+# ╭──────────────────────────────────────────────────────────────────────╮
+# │ sway-opacity — transparence « façon Hyprland » pour Sway standard     │
+# │ Fenêtre active presque opaque, fenêtres inactives estompées, avec un  │
+# │ fondu court. Aucune dépendance : parle directement au socket IPC.     │
+# │ Usage : sway-opacity [daemon|toggle|on|off|status]                    │
+# │ Réglages : ~/.config/sway/opacity.conf                                │
+# ╰──────────────────────────────────────────────────────────────────────╯
+import configparser, json, os, re, signal, socket, struct, sys, time
+
+CONF = os.path.expanduser('~/.config/sway/opacity.conf')
+RUN = os.environ.get('XDG_RUNTIME_DIR', '/tmp')
+PIDF, OFFF = f'{RUN}/sway-opacity.pid', f'{RUN}/sway-opacity.off'
+MAGIC = b'i3-ipc'
+
+class IPC:
+    def __init__(self):
+        self.s = socket.socket(socket.AF_UNIX); self.s.connect(os.environ['SWAYSOCK'])
+    def send(self, typ, payload=''):
+        p = payload.encode(); self.s.sendall(MAGIC + struct.pack('<II', len(p), typ) + p)
+    def recv(self):
+        h = self._read(14); n, typ = struct.unpack('<II', h[6:]); return typ, json.loads(self._read(n))
+    def _read(self, n):
+        b = b''
+        while len(b) < n:
+            c = self.s.recv(n - len(b))
+            if not c: raise ConnectionError
+            b += c
+        return b
+    def cmd(self, c): self.send(0, c); return self.recv()[1]
+    def tree(self): self.send(4); return self.recv()[1]
+
+def load():
+    cp = configparser.ConfigParser(); cp.optionxform = str; cp.read(CONF)
+    d = cp['general'] if cp.has_section('general') else {}
+    g = dict(focused=float(d.get('focused', .95)), unfocused=float(d.get('unfocused', .86)),
+             steps=int(d.get('fade_steps', 5)), ms=int(d.get('fade_ms', 70)),
+             floating=float(d.get('floating_focused', 1.0)))
+    rules = []
+    if cp.has_section('rules'):
+        for pat, v in cp['rules'].items():
+            f, u = (float(x) for x in v.split()); rules.append((re.compile(pat, re.I), f, u))
+    return g, rules
+
+def windows(n, out, floating=False):
+    if n.get('type') in ('con', 'floating_con') and (n.get('app_id') or n.get('window_properties')) and not n.get('nodes'):
+        n['_floating'] = floating or n.get('type') == 'floating_con'; out.append(n)
+    for c in n.get('nodes', []): windows(c, out, floating)
+    for c in n.get('floating_nodes', []): windows(c, out, True)
+    return out
+
+def targets(tree, g, rules, off):
+    t = {}
+    for w in windows(tree, []):
+        name = w.get('app_id') or (w.get('window_properties') or {}).get('class') or ''
+        f, u = g['focused'], g['unfocused']
+        for pat, rf, ru in rules:
+            if pat.search(name): f, u = rf, ru; break
+        if w['_floating']: f = max(f, g['floating'])   # flottante active : opaque (sinon le texte derrière transparaît)
+        o = 1.0 if (off or w.get('fullscreen_mode')) else (f if w.get('focused') else u)
+        t[w['id']] = round(o, 3)
+    return t
+
+def daemon():
+    open(PIDF, 'w').write(str(os.getpid()))
+    ctl, ev = IPC(), IPC()
+    ev.send(2, '["window","workspace"]'); ev.recv()
+    cur, dirty = {}, [True]
+    signal.signal(signal.SIGUSR1, lambda *_: dirty.__setitem__(0, True))
+    def restore(*_):
+        for i in cur: ctl.cmd(f'[con_id={i}] opacity 1')
+        try: os.remove(PIDF)
+        except OSError: pass
+        sys.exit(0)
+    signal.signal(signal.SIGTERM, restore); signal.signal(signal.SIGINT, restore)
+    ev.s.settimeout(0.5)
+    while True:
+        if dirty[0]:
+            dirty[0] = False
+            g, rules = load(); want = targets(ctl.tree(), g, rules, os.path.exists(OFFF))
+            for i in list(cur):
+                if i not in want: del cur[i]
+            moves = [(i, cur.get(i, 1.0), o) for i, o in want.items() if cur.get(i) != o]
+            new = [m for m in moves if m[0] not in cur]
+            n = max(1, g['steps'])
+            for k in range(1, n + 1):
+                for i, a, b in moves:
+                    if (i, a, b) in new and k < n: continue        # nouvelle fenêtre : valeur finale directe
+                    ctl.cmd(f'[con_id={i}] opacity {a + (b - a) * k / n:.3f}')
+                if k < n: time.sleep(g['ms'] / 1000 / n)
+            cur.update(want)
+        try:
+            typ, e = ev.recv()
+            if e.get('change') in ('focus', 'new', 'close', 'fullscreen_mode', 'floating', 'move', 'init'): dirty[0] = True
+        except socket.timeout: pass
+        except InterruptedError: pass
+
+def poke():
+    try: os.kill(int(open(PIDF).read()), signal.SIGUSR1)
+    except Exception: pass
+
+a = sys.argv[1] if len(sys.argv) > 1 else 'daemon'
+if a == 'daemon': daemon()
+elif a in ('toggle', 'on', 'off'):
+    off = os.path.exists(OFFF) if a == 'toggle' else a == 'on'
+    if off:
+        try: os.remove(OFFF)
+        except OSError: pass
+    else: open(OFFF, 'w').close()
+    poke(); print('transparence', 'activée' if off else 'désactivée')
+elif a == 'status': print('off' if os.path.exists(OFFF) else 'on')
+else: sys.exit(__doc__ or 'usage: sway-opacity [daemon|toggle|on|off|status]')

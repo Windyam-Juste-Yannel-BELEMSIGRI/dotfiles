@@ -1,0 +1,8 @@
+[Unit]
+Description=Agenda : synchronisation Google Agenda → agenda local
+
+[Service]
+Type=oneshot
+ExecStart=%h/.local/bin/agenda gsync
+# Le script réessaie lui-même tant que le réseau n'est pas prêt (6 × 10 s).
+TimeoutStartSec=180

@@ -1,0 +1,6 @@
+[Unit]
+Description=Agenda : envoi des rappels dus (notifications mako)
+
+[Service]
+Type=oneshot
+ExecStart=%h/.local/bin/agenda remind

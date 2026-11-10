@@ -1,0 +1,75 @@
+#!/usr/bin/env bash
+# ╭──────────────────────────────────────────────────────────────────────╮
+# │ ioc — pivot rapide sur un indicateur (IP, domaine, URL, hash, CVE)    │
+# │ Usage : ioc [--menu] [INDICATEUR]      (défaut : presse-papiers)      │
+# │   ioc 8.8.8.8            type détecté + sources proposées             │
+# │   ioc --menu             menu fuzzel, ouvre la source choisie         │
+# │   ioc -d 'hxxp://evil[.]tld'   « refang » puis analyse                │
+# │ Les indicateurs « defangés » (hxxp, [.], (.)) sont remis en forme.    │
+# │ Rien n'est envoyé tant qu'une source n'est pas choisie.               │
+# ╰──────────────────────────────────────────────────────────────────────╯
+set -euo pipefail
+# shellcheck source=../lib/soc/ui.sh
+source "$(dirname "$(readlink -f "$0")")/../lib/soc/ui.sh"
+usage() { sed -n '3,9p' "$0" | sed 's/^# │ \{0,1\}//; s/ *│$//'; }
+
+MENU=0 VAL=
+for a in "$@"; do
+  case $a in -h|--help) usage; exit 0 ;; --menu) MENU=1 ;; -d) ;; *) VAL=$a ;; esac
+done
+[[ -z $VAL ]] && VAL=$(wl-paste -n 2>/dev/null | head -n1 || true)
+VAL=$(printf '%s' "$VAL" | tr -d '[:space:]' | sed -E 's/^hxxp/http/I; s/\[\.\]|\(\.\)|\[dot\]/./Ig; s/\[:\]/:/g; s/\[@\]/@/g')
+if [[ -z $VAL ]]; then
+  (( MENU )) && { notify "ioc" "Presse-papiers vide : copie une IP, un domaine, un hash ou une CVE."; exit 0; }
+  die "aucun indicateur (argument ou presse-papiers)"
+fi
+
+# ── Détection du type ───────────────────────────────────────────────────
+enc() { python3 -c 'import sys,urllib.parse;print(urllib.parse.quote(sys.argv[1],safe=""))' "$1"; }
+if   [[ $VAL =~ ^CVE-[0-9]{4}-[0-9]{4,}$ || $VAL =~ ^cve-[0-9]{4}-[0-9]{4,}$ ]]; then TYPE=cve; VAL=${VAL^^}
+elif [[ $VAL =~ ^[A-Fa-f0-9]{64}$ ]]; then TYPE=sha256
+elif [[ $VAL =~ ^[A-Fa-f0-9]{40}$ ]]; then TYPE=sha1
+elif [[ $VAL =~ ^[A-Fa-f0-9]{32}$ ]]; then TYPE=md5
+elif [[ $VAL =~ ^([0-9]{1,3}\.){3}[0-9]{1,3}$ ]]; then TYPE=ipv4
+elif [[ $VAL =~ ^https?:// ]]; then TYPE=url
+elif [[ $VAL =~ ^T[0-9]{4}(\.[0-9]{3})?$ ]]; then TYPE=attack
+elif [[ $VAL =~ ^([A-Za-z0-9-]+\.)+[A-Za-z]{2,}$ ]]; then TYPE=domaine
+else TYPE=inconnu; fi
+
+Q=$(enc "$VAL")
+declare -a SRC
+case $TYPE in
+  ipv4)    SRC=("AbuseIPDB|https://www.abuseipdb.com/check/$Q" "VirusTotal|https://www.virustotal.com/gui/ip-address/$Q"
+                "Shodan|https://www.shodan.io/host/$Q" "GreyNoise|https://viz.greynoise.io/ip/$Q" "Talos|https://talosintelligence.com/reputation_center/lookup?search=$Q") ;;
+  domaine) SRC=("VirusTotal|https://www.virustotal.com/gui/domain/$Q" "urlscan|https://urlscan.io/search/#domain:$Q"
+                "Talos|https://talosintelligence.com/reputation_center/lookup?search=$Q" "crt.sh (certificats)|https://crt.sh/?q=$Q" "Shodan|https://www.shodan.io/search?query=hostname:$Q") ;;
+  url)     SRC=("urlscan|https://urlscan.io/search/#$Q" "VirusTotal|https://www.virustotal.com/gui/search/$Q" "CyberChef|https://gchq.github.io/CyberChef/#input=$(printf '%s' "$VAL" | base64 -w0 | tr -d '=')") ;;
+  md5|sha1|sha256) SRC=("VirusTotal|https://www.virustotal.com/gui/file/$Q" "MalwareBazaar|https://bazaar.abuse.ch/browse.php?search=$TYPE%3A$Q" "Hybrid Analysis|https://www.hybrid-analysis.com/search?query=$Q") ;;
+  cve)     SRC=("NVD|https://nvd.nist.gov/vuln/detail/$Q" "CVE.org|https://www.cve.org/CVERecord?id=$Q" "Exploit-DB|https://www.exploit-db.com/search?cve=${VAL#CVE-}" "GitHub (PoC)|https://github.com/search?q=$Q&type=repositories") ;;
+  attack)  SRC=("MITRE ATT&CK|https://attack.mitre.org/techniques/${VAL/.//}/" "Sigma (règles)|https://github.com/search?q=repo%3ASigmaHQ%2Fsigma+$Q&type=code") ;;
+  *)       SRC=("Recherche web|https://duckduckgo.com/?q=$Q" "VirusTotal|https://www.virustotal.com/gui/search/$Q") ;;
+esac
+
+# IP privée / réservée : inutile (et indiscret) de l'envoyer à un tiers
+PRIV=0
+[[ $TYPE == ipv4 && $VAL =~ ^(10\.|127\.|192\.168\.|169\.254\.|172\.(1[6-9]|2[0-9]|3[01])\.) ]] && PRIV=1
+
+if (( MENU )); then
+  need fuzzel
+  (( PRIV )) && { notify "ioc · $VAL" "Adresse privée : aucune source externe pertinente."; exit 0; }
+  sel=$( { for s in "${SRC[@]}"; do printf '󰖟  %s\n' "${s%%|*}"; done; printf '󰆏  Copier la valeur nettoyée\n'; } | menu "$TYPE · ${VAL:0:28} ❯" --lines $(( ${#SRC[@]} + 1 )) --width 52) || exit 0
+  [[ $sel == *Copier* ]] && { printf '%s' "$VAL" | wl-copy; notify "ioc" "Copié : $VAL"; exit 0; }
+  for s in "${SRC[@]}"; do [[ "󰖟  ${s%%|*}" == "$sel" ]] && exec xdg-open "${s#*|}"; done
+  exit 0
+fi
+
+box_title "IOC · $TYPE"
+printf '  %svaleur%s   %s\n' "$C_MUTED" "$C_RST" "$VAL"
+(( PRIV )) && { warn "adresse privée/réservée : pas de pivot externe"; exit 0; }
+[[ $TYPE == inconnu ]] && warn "type non reconnu : recherche générique"
+if [[ $TYPE == ipv4 || $TYPE == domaine ]] && command -v dig >/dev/null; then
+  r=$( { [[ $TYPE == ipv4 ]] && dig +short -x "$VAL" || dig +short "$VAL"; } 2>/dev/null | head -3 | paste -sd' ' || true)
+  [[ -n $r ]] && printf '  %sDNS%s      %s\n' "$C_MUTED" "$C_RST" "$r"
+fi
+section "Sources"
+for s in "${SRC[@]}"; do printf '  %s%-22s%s %s\n' "$C_ACC" "${s%%|*}" "$C_RST" "${s#*|}"; done

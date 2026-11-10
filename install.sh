@@ -37,7 +37,7 @@ for a in "$@"; do
   esac
 done
 
-STOW_PKGS=(sway waybar foot fuzzel mako swaylock swayidle kanshi swappy cava
+STOW_PKGS=(sway waybar foot fuzzel mako swaylock swayidle kanshi swappy cava btop psql
            systemd-user scripts soc gtk bash starship tmux nvim vscode zathura imv)
 NF_VERSION=v3.5.1
 NF_URL=https://github.com/ryanoasis/nerd-fonts/releases/download/$NF_VERSION

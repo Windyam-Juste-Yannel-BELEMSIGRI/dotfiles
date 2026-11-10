@@ -1,0 +1,46 @@
+#!/usr/bin/env bash
+# ╭──────────────────────────────────────────────────────────────────────╮
+# │ workmode — prépare l'espace de travail selon l'activité               │
+# │ Usage : workmode [soc|data|etude]       (sans argument : menu fuzzel) │
+# │   soc    tableau de bord SOC (esp. 9) · sources CTI · terminal        │
+# │   data   terminal + docs data engineering                             │
+# │   etude  profil Coursera · agenda · ne pas déranger                   │
+# │ N'ouvre que ce qui n'est pas déjà lancé.                              │
+# ╰──────────────────────────────────────────────────────────────────────╯
+set -euo pipefail
+# shellcheck source=../lib/soc/ui.sh
+source "$(dirname "$(readlink -f "$0")")/../lib/soc/ui.sh"
+[[ ${1:-} == -h || ${1:-} == --help ]] && { sed -n '3,8p' "$0" | sed 's/^# │ \{0,1\}//; s/ *│$//'; exit 0; }
+need swaymsg
+
+B=$HOME/.local/bin
+has() { swaymsg -t get_tree | grep -q "\"app_id\": \"$1\""; }
+sway() { swaymsg -q "$@" || true; }
+qb() { command -v qutebrowser >/dev/null && "$B/qb" "$@" >/dev/null 2>&1 & disown; }
+
+mode=${1:-}
+if [[ -z $mode ]]; then
+  need fuzzel
+  sel=$(printf '%s\n' "󰒃  SOC — veille, alertes, pivots" "󰆼  Data — pipelines, SQL, docs" "󰑴  Étude — Coursera, agenda, calme" | menu "mode ❯" --lines 3 --width 44) || exit 0
+  case $sel in *SOC*) mode=soc ;; *Data*) mode=data ;; *Étude*) mode=etude ;; *) exit 0 ;; esac
+fi
+
+case $mode in
+  soc)
+    has soc-dashboard || sway exec "foot --app-id=soc-dashboard $B/soc-dashboard"
+    sway workspace number 2; qb yannel ':soc'
+    sway workspace number 1; has foot || sway exec foot
+    makoctl mode -r do-not-disturb >/dev/null 2>&1 || true
+    notify "Mode SOC" "Tableau de bord (esp. 9) · sources CTI (esp. 2) · Super+Q : pivot IOC" ;;
+  data)
+    sway workspace number 2; qb yannel ':dataeng'
+    sway workspace number 1; has foot || sway exec foot
+    notify "Mode Data" "Docs (esp. 2) · dq FICHIER : profil rapide d'un CSV/JSON" ;;
+  etude)
+    sway workspace number 3; qb coursera ':cours'
+    makoctl mode -a do-not-disturb >/dev/null 2>&1 || true
+    pkill -RTMIN+8 waybar 2>/dev/null || true
+    sway exec "$B/agenda-gui"
+    notify "Mode Étude" "Coursera (esp. 3) · notifications en sourdine (Super+Shift+M pour rétablir)" ;;
+  *) die "mode inconnu : $mode (soc|data|etude)" ;;
+esac

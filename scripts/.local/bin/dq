@@ -1,0 +1,110 @@
+#!/usr/bin/env python3
+# ╭──────────────────────────────────────────────────────────────────────╮
+# │ dq — profil rapide d'un fichier de données (CSV, TSV, JSON, JSONL)    │
+# │ Usage : dq FICHIER [-n LIGNES] [-s SEP] [--head N]                    │
+# │   Par colonne : type déduit, % de vides, valeurs distinctes,          │
+# │   min / max, exemple. Signale doublons et colonnes constantes.        │
+# │   -n  nombre de lignes lues (défaut : 200000)   --head  aperçu brut   │
+# │ Aucune dépendance (bibliothèque standard Python).                     │
+# ╰──────────────────────────────────────────────────────────────────────╯
+import argparse, csv, gzip, json, os, re, sys
+
+TTY = sys.stdout.isatty() and not os.environ.get('NO_COLOR')
+def c(h, s): return f'\x1b[38;2;{int(h[1:3],16)};{int(h[3:5],16)};{int(h[5:7],16)}m{s}\x1b[0m' if TTY else str(s)
+ACC, MUT, RED, YEL, GRN, BLU, MAG = '#7dd3c0', '#a8a8ae', '#c07070', '#d8a657', '#8fb090', '#7a9dc0', '#b090c0'
+EMPTY = {'', 'null', 'none', 'nan', 'na', 'n/a', '\\n'}
+RX = [('int', re.compile(r'[+-]?\d+$')), ('float', re.compile(r'[+-]?(\d+[.,]\d*|\d*[.,]\d+)([eE][+-]?\d+)?$')),
+      ('date', re.compile(r'\d{4}-\d{2}-\d{2}([T ]\d{2}:\d{2}(:\d{2}(\.\d+)?)?(Z|[+-]\d{2}:?\d{2})?)?$|\d{1,2}/\d{1,2}/\d{2,4}$')),
+      ('bool', re.compile(r'(true|false|yes|no|oui|non|0|1)$', re.I)),
+      ('ip', re.compile(r'(\d{1,3}\.){3}\d{1,3}$')), ('uuid', re.compile(r'[0-9a-f]{8}-[0-9a-f]{4}-', re.I))]
+TCOL = {'int': BLU, 'float': BLU, 'date': MAG, 'bool': YEL, 'ip': RED, 'uuid': MUT, 'texte': ACC, 'vide': MUT, 'mixte': YEL}
+
+
+def rows(path, sep, limit):
+    op = gzip.open if path.endswith('.gz') else open
+    base = path[:-3] if path.endswith('.gz') else path
+    with op(path, 'rt', encoding='utf-8', errors='replace', newline='') as f:
+        if base.endswith(('.jsonl', '.ndjson')):
+            for i, line in enumerate(f):
+                if i >= limit: break
+                if line.strip(): yield json.loads(line)
+        elif base.endswith('.json'):
+            d = json.load(f)
+            if isinstance(d, dict):
+                d = next((v for v in d.values() if isinstance(v, list)), [d])
+            for i, r in enumerate(d):
+                if i >= limit: break
+                yield r if isinstance(r, dict) else {'valeur': r}
+        else:
+            head = f.read(8192); f.seek(0)
+            if not sep:
+                try: sep = csv.Sniffer().sniff(head, delimiters=',;\t|').delimiter
+                except csv.Error: sep = '\t' if base.endswith('.tsv') else ','
+            for i, r in enumerate(csv.DictReader(f, delimiter=sep)):
+                if i >= limit: break
+                yield r
+
+
+def kind(v):
+    for name, rx in RX:
+        if rx.match(v): return name
+    return 'texte'
+
+
+def main():
+    p = argparse.ArgumentParser(add_help=False)
+    p.add_argument('file', nargs='?'); p.add_argument('-n', type=int, default=200000); p.add_argument('-s', default=None)
+    p.add_argument('--head', type=int, default=0); p.add_argument('-h', '--help', action='store_true')
+    o = p.parse_args()
+    if o.help or not o.file:
+        for l in open(os.path.realpath(__file__)).read().split('\n')[2:8]: print(l.strip('# │').rstrip('│ ').rstrip())
+        sys.exit(0 if o.help else 1)
+    if not os.path.exists(o.file): sys.exit(c(RED, '[✖] ') + f'introuvable : {o.file}')
+    cols, n, seen, dup = {}, 0, set(), 0
+    try:
+        for r in rows(o.file, o.s, o.n):
+            n += 1
+            if o.head and n <= o.head: print(c(MUT, f'{n:>3} ') + json.dumps(r, ensure_ascii=False, default=str)[:200])
+            h = hash(tuple(sorted((k, str(v)) for k, v in r.items())))
+            dup += h in seen; seen.add(h)
+            for k, v in r.items():
+                s = cols.setdefault(str(k), dict(empty=0, kinds={}, vals=set(), mn=None, mx=None, ex=None, over=False))
+                t = '' if v is None else (json.dumps(v, ensure_ascii=False) if isinstance(v, (dict, list)) else str(v)).strip()
+                if t.lower() in EMPTY: s['empty'] += 1; continue
+                k2 = kind(t); s['kinds'][k2] = s['kinds'].get(k2, 0) + 1
+                if s['ex'] is None: s['ex'] = t
+                if not s['over']:
+                    s['vals'].add(t)
+                    if len(s['vals']) > 50000: s['over'] = True
+                key = float(t.replace(',', '.')) if k2 in ('int', 'float') else t
+                try:
+                    if s['mn'] is None or key < s['mn'][0]: s['mn'] = (key, t)
+                    if s['mx'] is None or key > s['mx'][0]: s['mx'] = (key, t)
+                except TypeError: pass
+    except (ValueError, csv.Error, UnicodeError) as x:
+        sys.exit(c(RED, '[✖] ') + f'lecture impossible : {x}')
+    if not n: sys.exit(c(YEL, '[!] ') + 'fichier vide')
+    size = os.path.getsize(o.file)
+    print(c(ACC, f'╭─ {os.path.basename(o.file)} ') + c(MUT, f'· {n:,} lignes{" (échantillon)" if n >= o.n else ""} · {len(cols)} colonnes · {size/1024:,.0f} Kio'.replace(',', ' ')))
+    w = max(7, min(max(len(k) for k in cols), 28))
+    print(c(ACC, '│ ') + c(MUT, f'{"colonne":<{w}}  {"type":<6} {"vides":>6} {"distinct":>9}  {"min → max":<34} exemple'))
+    flags = []
+    for k, s in cols.items():
+        filled = n - s['empty']; ks = s['kinds']
+        t = 'vide' if not ks else max(ks, key=ks.get) if max(ks.values()) >= 0.95 * filled else 'mixte'
+        pct = 100 * s['empty'] / n; d = len(s['vals'])
+        rng = f'{s["mn"][1][:16]} → {s["mx"][1][:16]}' if s['mn'] and t in ('int', 'float', 'date') else ''
+        pc = c(RED if pct > 50 else YEL if pct > 5 else GRN, f'{pct:5.1f}%')
+        print(c(ACC, '│ ') + f'{k[:w]:<{w}}  {c(TCOL[t], f"{t:<6}")} {pc} {("≥50000" if s["over"] else str(d)):>9}  {rng:<34} ' + c(MUT, (s['ex'] or '—')[:28]))
+        if t == 'mixte': flags.append(f'{k} : types mélangés ({", ".join(f"{a} {b}" for a, b in sorted(ks.items(), key=lambda x: -x[1]))})')
+        if filled and d == 1 and n > 1: flags.append(f'{k} : valeur constante')
+        if pct == 100: flags.append(f'{k} : entièrement vide')
+        if filled and d == n and not s['over'] and n > 1: flags.append(f'{k} : unique sur toutes les lignes (clé candidate)')
+    if dup: flags.insert(0, f'{dup} ligne(s) en double')
+    print(c(ACC, '├─ ') + (c(YEL, f'{len(flags)} remarque(s)') if flags else c(GRN, 'aucune anomalie évidente')))
+    for f in flags: print(c(ACC, '│ ') + c(YEL, '• ') + f)
+    print(c(ACC, '╰─'))
+
+
+if __name__ == '__main__':
+    main()

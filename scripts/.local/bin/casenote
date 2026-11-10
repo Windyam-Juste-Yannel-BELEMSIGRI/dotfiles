@@ -1,0 +1,51 @@
+#!/usr/bin/env bash
+# ╭──────────────────────────────────────────────────────────────────────╮
+# │ casenote — journal d'investigation horodaté (UTC) en Markdown         │
+# │ Usage : casenote new "Titre"      crée un dossier et le rend actif    │
+# │         casenote "texte…"         ajoute une ligne horodatée UTC      │
+# │         casenote ioc VALEUR       consigne un indicateur              │
+# │         casenote open|show|list   éditer / afficher / lister          │
+# │         casenote use N            reprendre le dossier n° N (de list) │
+# │ Fichiers : ~/Documents/soc/cases/AAAA-MM-JJ-titre.md                  │
+# ╰──────────────────────────────────────────────────────────────────────╯
+set -euo pipefail
+# shellcheck source=../lib/soc/ui.sh
+source "$(dirname "$(readlink -f "$0")")/../lib/soc/ui.sh"
+usage() { sed -n '3,9p' "$0" | sed 's/^# │ \{0,1\}//; s/ *│$//'; }
+
+DIR=${CASENOTE_DIR:-$HOME/Documents/soc/cases}
+CUR=$DIR/.current
+mkdir -p "$DIR"
+now() { date -u '+%Y-%m-%dT%H:%M:%SZ'; }
+current() { [[ -r $CUR && -f $(<"$CUR") ]] && cat "$CUR" || die "aucun dossier actif : casenote new \"Titre\""; }
+
+case ${1:-} in
+  -h|--help|'') usage ;;
+  new)
+    [[ -n ${2:-} ]] || die 'usage : casenote new "Titre"'
+    slug=$(printf '%s' "$2" | iconv -t ascii//TRANSLIT 2>/dev/null | tr '[:upper:]' '[:lower:]' | tr -cs 'a-z0-9' '-' | sed 's/^-//; s/-$//')
+    f=$DIR/$(date +%F)-${slug:-dossier}.md
+    [[ -e $f ]] && die "existe déjà : $f"
+    printf '# %s\n\n- **Ouvert** : %s\n- **Analyste** : %s\n- **Statut** : en cours\n\n## Indicateurs\n\n## Chronologie (UTC)\n\n' "$2" "$(now)" "$USER" > "$f"
+    printf '%s' "$f" > "$CUR"; ok "dossier actif : $f" ;;
+  ioc)
+    [[ -n ${2:-} ]] || die 'usage : casenote ioc VALEUR'
+    f=$(current); python3 - "$f" "$2" "$(now)" <<'PY'
+import sys
+f, v, t = sys.argv[1:]; s = open(f).read(); line = f'- `{v}` — relevé {t}\n'
+i = s.find('## Chronologie'); s = s[:i].rstrip('\n') + '\n' + line + '\n' + s[i:] if i >= 0 else s + line
+open(f, 'w').write(s)
+PY
+    ok "indicateur consigné : $2" ;;
+  open) exec "${EDITOR:-nvim}" "$(current)" ;;
+  show) f=$(current); box_title "$(basename "$f")"; cat "$f" ;;
+  list)
+    box_title "Dossiers"; i=0; cur=$(cat "$CUR" 2>/dev/null || true)
+    while IFS= read -r f; do i=$((i+1)); m=' '; [[ $f == "$cur" ]] && m="${C_ACC}●${C_RST}"
+      printf '  %s %2d  %s  %s%s%s\n' "$m" "$i" "$(basename "$f" .md)" "$C_MUTED" "$(grep -c '^- \*\*[0-9]' "$f" || true) entrées" "$C_RST"
+    done < <(ls -1t "$DIR"/*.md 2>/dev/null); (( i )) || info "aucun dossier" ;;
+  use)
+    f=$(ls -1t "$DIR"/*.md 2>/dev/null | sed -n "${2:-0}p"); [[ -n $f ]] || die "numéro inconnu (voir casenote list)"
+    printf '%s' "$f" > "$CUR"; ok "dossier actif : $(basename "$f")" ;;
+  *) f=$(current); printf -- '- **%s** — %s\n' "$(now)" "$*" >> "$f"; ok "noté dans $(basename "$f")" ;;
+esac

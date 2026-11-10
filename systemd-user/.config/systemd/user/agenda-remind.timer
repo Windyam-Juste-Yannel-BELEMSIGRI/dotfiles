@@ -1,0 +1,7 @@
+[Unit]
+Description=Agenda : vérifie les rappels chaque minute
+PartOf=sway-session.target
+
+[Timer]
+OnCalendar=minutely
+AccuracySec=5s

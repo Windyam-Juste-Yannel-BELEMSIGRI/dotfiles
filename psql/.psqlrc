@@ -1,0 +1,22 @@
+-- psql « glass // SOC » : invite colorée, tableaux Unicode, garde-fous.
+\set QUIET 1
+\set ON_ERROR_ROLLBACK interactive
+\set HISTCONTROL ignoredups
+\set HISTSIZE 5000
+\set COMP_KEYWORD_CASE upper
+\set VERBOSITY verbose
+\pset null '∅'
+\pset linestyle unicode
+\pset border 2
+\pset unicode_header_linestyle double
+\x auto
+\timing on
+-- invite : utilisateur@hôte/base, « * » en transaction, « # » si super-utilisateur
+\set PROMPT1 '%[%033[38;2;125;211;192m%]%n%[%033[38;2;168;168;174m%]@%m%[%033[0m%]/%[%033[38;2;216;166;87m%]%/%[%033[38;2;192;112;112m%]%x%[%033[0m%] %# '
+\set PROMPT2 '%[%033[38;2;168;168;174m%]  …%[%033[0m%] '
+-- raccourcis d'exploration : :tables  :sizes  :activity  :locks
+\set tables 'SELECT schemaname, relname, n_live_tup AS lignes FROM pg_stat_user_tables ORDER BY n_live_tup DESC;'
+\set sizes 'SELECT relname, pg_size_pretty(pg_total_relation_size(relid)) AS taille FROM pg_catalog.pg_statio_user_tables ORDER BY pg_total_relation_size(relid) DESC LIMIT 20;'
+\set activity 'SELECT pid, usename, state, now() - query_start AS depuis, left(query, 80) AS requete FROM pg_stat_activity WHERE state <> ''idle'' ORDER BY query_start;'
+\set locks 'SELECT a.pid, a.usename, l.mode, l.granted, left(a.query, 60) AS requete FROM pg_locks l JOIN pg_stat_activity a USING (pid) WHERE NOT l.granted;'
+\unset QUIET

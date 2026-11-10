@@ -18,7 +18,7 @@
     "spacing": 4,
 
     "modules-left": ["custom/logo", "sway/workspaces", "sway/mode", "sway/scratchpad", "sway/window"],
-    "modules-center": ["clock", "clock#utc"],
+    "modules-center": ["clock", "clock#utc", "custom/agenda"],
     "modules-right": [
       "custom/rec", "mpris", "wireplumber", "backlight", "network", "custom/vpn",
       "bluetooth", "power-profiles-daemon", "battery", "idle_inhibitor",
@@ -69,6 +69,15 @@
       "timezone": "Etc/UTC",
       "format": "UTC {:%H:%M}",
       "tooltip-format": "Heure UTC (corrélation des logs / SIEM)\n{:%Y-%m-%dT%H:%M:%SZ}"
+    },
+
+    "custom/agenda": {
+      "exec": "~/.local/bin/agenda next --waybar",
+      "return-type": "json",
+      "interval": 60,
+      "signal": 9,
+      "on-click": "~/.local/bin/agenda-gui",
+      "on-click-right": "~/.local/bin/agenda menu"
     },
 
     "custom/rec": {

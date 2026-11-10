@@ -1,0 +1,254 @@
+#!/usr/bin/env python3
+# ╭──────────────────────────────────────────────────────────────────────╮
+# │ agenda-gui — interface de l'agenda « glass // SOC » (GTK 3)           │
+# │ Calendrier mensuel + liste du jour + ajout rapide.                    │
+# │ Clavier : ←/→ jour · ↑/↓ semaine · PgUp/PgDn mois · t aujourd'hui     │
+# │           n nouvel événement · Suppr supprimer · Échap fermer         │
+# ╰──────────────────────────────────────────────────────────────────────╯
+import calendar, os, sys
+from datetime import date, datetime, timedelta
+
+import gi
+gi.require_version('Gtk', '3.0'); gi.require_version('Gdk', '3.0')
+from gi.repository import Gdk, GLib, Gtk, Pango
+
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.realpath(__file__)), '..', 'lib', 'soc'))
+import agenda_core as A
+
+CSS = b"""
+* { font-family: "JetBrainsMono Nerd Font", monospace; font-size: 13px; outline: none; }
+window, window.background, decoration { background: transparent; box-shadow: none; }
+.root { background: #1c1c1e; border: 1px solid rgba(125,211,192,0.35); border-radius: 14px; padding: 18px; color: #e8e8ec; }
+.title { color: #7dd3c0; font-size: 17px; font-weight: bold; }
+.sub, .dim { color: #a8a8ae; }
+.month { font-size: 15px; font-weight: bold; }
+.panel { background: rgba(42,42,46,0.72); border: 1px solid rgba(232,232,236,0.06); border-radius: 12px; padding: 12px; }
+button { background: transparent; color: #e8e8ec; border: 1px solid transparent; border-radius: 8px; box-shadow: none;
+         text-shadow: none; padding: 4px 9px; transition: all 140ms ease; background-image: none; }
+button:hover { background: rgba(232,232,236,0.08); }
+button.pill { background: rgba(58,58,64,0.8); border-color: rgba(232,232,236,0.06); }
+button.pill:hover { border-color: rgba(125,211,192,0.5); color: #7dd3c0; }
+button.primary { background: #7dd3c0; color: #1c1c1e; font-weight: bold; }
+button.primary:hover { background: #8de3d0; }
+button.danger:hover { background: rgba(192,112,112,0.25); color: #c07070; }
+.wd { color: #a8a8ae; font-size: 11px; padding-bottom: 4px; }
+button.day { border-radius: 10px; padding: 5px 0 4px 0; min-width: 52px; min-height: 50px; }
+button.day.other { color: #5a5a62; }
+button.day.weekend { color: #a8a8ae; }
+button.day.today { border-color: rgba(125,211,192,0.75); color: #7dd3c0; font-weight: bold; }
+button.day.selected { background: rgba(125,211,192,0.16); border-color: #7dd3c0; }
+.dots { font-size: 9px; }
+.daytitle { font-size: 15px; font-weight: bold; }
+row { background: transparent; border-radius: 10px; padding: 2px; transition: all 140ms ease; }
+row:hover { background: rgba(232,232,236,0.05); }
+row:selected { background: rgba(125,211,192,0.10); }
+list { background: transparent; }
+.bar { min-width: 3px; border-radius: 2px; }
+.time { font-weight: bold; }
+.done .evt { color: #6a6a72; text-decoration-line: line-through; }
+.live { color: #c07070; font-weight: bold; }
+entry, combobox button { background: rgba(28,28,30,0.85); color: #e8e8ec; border: 1px solid #3a3a40; border-radius: 8px;
+        padding: 6px 9px; box-shadow: none; caret-color: #7dd3c0; }
+entry:focus { border-color: #7dd3c0; }
+entry.bad { border-color: #c07070; }
+.hint { color: #a8a8ae; font-size: 11px; }
+.ok { color: #8fb090; } .err { color: #c07070; }
+menu, .popup, popover { background: #2a2a2e; color: #e8e8ec; border: 1px solid #3a3a40; border-radius: 8px; }
+menuitem:hover { background: rgba(125,211,192,0.15); }
+scrollbar { background: transparent; } scrollbar slider { background: #3a3a40; border-radius: 4px; min-width: 4px; }
+"""
+
+
+def L(text='', cls='', xalign=0.0, markup=False):
+    w = Gtk.Label(xalign=xalign)
+    w.set_markup(text) if markup else w.set_text(text)
+    for c in cls.split(): w.get_style_context().add_class(c)
+    return w
+
+
+def B(text, cls='', cb=None, tip=None):
+    w = Gtk.Button(label=text); w.set_can_focus(False)
+    for c in cls.split(): w.get_style_context().add_class(c)
+    if cb: w.connect('clicked', lambda *_: cb())
+    if tip: w.set_tooltip_text(tip)
+    return w
+
+
+class Agenda(Gtk.Window):
+    def __init__(self):
+        super().__init__(title='Agenda')
+        self.set_default_size(1020, 640)
+        vis = self.get_screen().get_rgba_visual()
+        if vis: self.set_visual(vis)
+        self.sel = date.today(); self.view = self.sel.replace(day=1); self.mtime = 0
+
+        root = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=14); root.get_style_context().add_class('root'); self.add(root)
+        # ── En-tête
+        head = Gtk.Box(spacing=10); root.pack_start(head, False, False, 0)
+        head.pack_start(L('󰃭  AGENDA', 'title'), False, False, 0)
+        self.stat = L('', 'sub'); head.pack_start(self.stat, False, False, 8)
+        head.pack_end(B('Aujourd\'hui', 'pill', lambda: self.go(date.today()), 't'), False, False, 0)
+        head.pack_end(B('›', 'pill', lambda: self.month(1), 'PgDn'), False, False, 0)
+        self.mlabel = L('', 'month', 0.5); self.mlabel.set_size_request(170, -1); head.pack_end(self.mlabel, False, False, 0)
+        head.pack_end(B('‹', 'pill', lambda: self.month(-1), 'PgUp'), False, False, 0)
+
+        body = Gtk.Box(spacing=14); root.pack_start(body, True, True, 0)
+        # ── Calendrier
+        left = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=6); left.get_style_context().add_class('panel'); body.pack_start(left, False, False, 0)
+        self.grid = Gtk.Grid(column_spacing=4, row_spacing=4, column_homogeneous=True); left.pack_start(self.grid, False, False, 0)
+        for i, j in enumerate(('lun', 'mar', 'mer', 'jeu', 'ven', 'sam', 'dim')): self.grid.attach(L(j, 'wd', 0.5), i, 0, 1, 1)
+        legend = Gtk.Box(spacing=12); left.pack_end(legend, False, False, 4)
+        for t, (col, ico) in A.TAGS.items(): legend.pack_start(L(f'<span foreground="{col}">{ico} {t}</span>', 'hint', markup=True), False, False, 0)
+
+        # ── Jour sélectionné
+        right = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=8); right.get_style_context().add_class('panel'); body.pack_start(right, True, True, 0)
+        self.dtitle = L('', 'daytitle'); right.pack_start(self.dtitle, False, False, 0)
+        sc = Gtk.ScrolledWindow(); sc.set_policy(Gtk.PolicyType.NEVER, Gtk.PolicyType.AUTOMATIC); right.pack_start(sc, True, True, 0)
+        self.list = Gtk.ListBox(); self.list.set_selection_mode(Gtk.SelectionMode.SINGLE); sc.add(self.list)
+        right.pack_start(L('À venir', 'sub'), False, False, 0)
+        self.soon = L('', 'hint'); self.soon.set_line_wrap(True); right.pack_start(self.soon, False, False, 0)
+
+        # ── Ajout rapide
+        add = Gtk.Box(spacing=8); root.pack_start(add, False, False, 0)
+        self.e_title = Gtk.Entry(placeholder_text='Nouvel événement…'); add.pack_start(self.e_title, True, True, 0)
+        self.e_when = Gtk.Entry(placeholder_text='14h · 9h30-11h · demain 10h', width_chars=22); add.pack_start(self.e_when, False, False, 0)
+        self.c_tag = Gtk.ComboBoxText(); [self.c_tag.append(t, f'{A.TAGS[t][1]} {t}') for t in A.TAGS]; self.c_tag.set_active_id(A.DEFAULT_TAG); add.pack_start(self.c_tag, False, False, 0)
+        self.c_rep = Gtk.ComboBoxText(); [self.c_rep.append(r, A.REPEAT_FR[r]) for r in A.REPEATS]; self.c_rep.set_active_id('none'); add.pack_start(self.c_rep, False, False, 0)
+        add.pack_start(B('+ Ajouter', 'primary', self.add_event), False, False, 0)
+        self.msg = L('←/→ jour · PgUp/PgDn mois · t aujourd\'hui · n nouveau · Suppr supprimer · Échap fermer', 'hint'); root.pack_start(self.msg, False, False, 0)
+        for e in (self.e_title, self.e_when): e.connect('activate', lambda *_: self.add_event())
+
+        self.connect('key-press-event', self.on_key); self.connect('destroy', Gtk.main_quit)
+        GLib.timeout_add_seconds(20, self.tick)
+        self.refresh()
+
+    # ── Navigation
+    def go(self, d):
+        self.sel = d; self.view = d.replace(day=1); self.refresh()
+
+    def month(self, k):
+        y, m = self.view.year, self.view.month + k
+        y, m = (y - 1, 12) if m < 1 else (y + 1, 1) if m > 12 else (y, m)
+        self.view = date(y, m, 1); self.sel = date(y, m, min(self.sel.day, calendar.monthrange(y, m)[1])); self.refresh()
+
+    def tick(self):
+        try: mt = os.path.getmtime(A.FILE)
+        except OSError: mt = 0
+        if mt != self.mtime or datetime.now().second < 20: self.refresh()
+        return True
+
+    # ── Rendu
+    def refresh(self):
+        try: self.mtime = os.path.getmtime(A.FILE)
+        except OSError: self.mtime = 0
+        events, today, now = A.load(), date.today(), datetime.now()
+        self.mlabel.set_text(f'{A.MOIS[self.view.month - 1]} {self.view.year}')
+        for w in self.grid.get_children():
+            if self.grid.child_get_property(w, 'top-attach') > 0: self.grid.remove(w)
+        first = self.view - timedelta(days=self.view.weekday())
+        occ = A.occurrences(first, first + timedelta(days=41), events); by = {}
+        for o in occ: by.setdefault(o[0].date(), []).append(o)
+        for i in range(42):
+            d = first + timedelta(days=i)
+            box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=1); box.pack_start(L(str(d.day), xalign=0.5), False, False, 0)
+            cols = []
+            for o in by.get(d, []):
+                c = '#5a5a62' if o[3] else A.TAGS.get(o[2].get('tag'), A.TAGS[A.DEFAULT_TAG])[0]
+                if len(cols) < 4: cols.append(f'<span foreground="{c}">●</span>')
+            box.pack_start(L(''.join(cols) or ' ', 'dots', 0.5, True), False, False, 0)
+            b = Gtk.Button(); b.add(box); b.set_can_focus(False); sc = b.get_style_context(); sc.add_class('day')
+            if d.month != self.view.month: sc.add_class('other')
+            elif d.weekday() > 4: sc.add_class('weekend')
+            if d == today: sc.add_class('today')
+            if d == self.sel: sc.add_class('selected')
+            b.connect('clicked', lambda _, d=d: self.go(d) if d.month != self.view.month else self.pick(d))
+            self.grid.attach(b, i % 7, 1 + i // 7, 1, 1)
+        # liste du jour
+        for r in self.list.get_children(): self.list.remove(r)
+        day = by.get(self.sel, []) if first <= self.sel <= first + timedelta(days=41) else A.occurrences(self.sel, self.sel, events)
+        self.dtitle.set_text(f'{A.fr_day(self.sel, today)}  ·  {self.sel:%d/%m/%Y}')
+        if not day:
+            r = Gtk.ListBoxRow(selectable=False); r.add(L('   Rien de prévu — tape un titre en bas pour ajouter.', 'dim')); self.list.add(r)
+        for st, en, e, done in day:
+            col = A.TAGS.get(e.get('tag'), A.TAGS[A.DEFAULT_TAG]); live = st <= now <= (en or st + timedelta(minutes=30)) and not done
+            row = Gtk.ListBoxRow(); row.ev = e; h = Gtk.Box(spacing=10); h.set_border_width(6); row.add(h)
+            if done: row.get_style_context().add_class('done')
+            bar = Gtk.Box(); bar.get_style_context().add_class('bar'); h.pack_start(bar, False, False, 0)
+            p = Gtk.CssProvider(); p.load_from_data(f'.bar {{ background: {col[0]}; }}'.encode()); bar.get_style_context().add_provider(p, Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION + 1)
+            v = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=2); h.pack_start(v, True, True, 0)
+            t = 'journée' if e.get('allday') else f'{st:%H:%M}' + (f' – {en:%H:%M}' if en else '')
+            top = Gtk.Box(spacing=8); v.pack_start(top, False, False, 0)
+            top.pack_start(L(f'<span foreground="{col[0]}">{t}</span>', 'time', markup=True), False, False, 0)
+            ttl = L(GLib.markup_escape_text(e['title']), 'evt', markup=True); ttl.set_ellipsize(Pango.EllipsizeMode.END); top.pack_start(ttl, True, True, 0)
+            meta = f'{col[1]} {e.get("tag", "")}'
+            if e.get('repeat', 'none') != 'none': meta += f'  ↻ {A.REPEAT_FR[e["repeat"]]}'
+            if e.get('source') == 'google': meta += '  󰊭 google'
+            if live: meta = '● en cours   ' + meta
+            elif st.date() == today and st > now and not done: meta = A.countdown(st, now) + '   ' + meta
+            if e.get('note'): meta += '   ' + e['note'].split('\n')[0]
+            v.pack_start(L(meta, 'live' if live else 'hint'), False, False, 0)
+            h.pack_end(B('󰆴', 'danger', lambda e=e: self.delete(e), 'Supprimer'), False, False, 0)
+            h.pack_end(B('✔' if done else '○', '', lambda e=e: (A.toggle_done(e['id'], self.sel), self.refresh()), 'Terminé / rouvrir'), False, False, 0)
+            self.list.add(row)
+        # résumé
+        up = [o for o in A.occurrences(today, today + timedelta(days=7), events) if not o[3] and (o[1] or o[0] + timedelta(minutes=30)) >= now]
+        self.soon.set_text('\n'.join(f'{A.fr_day(o[0].date(), today)[:12]:<12} {o[0]:%H:%M}  {o[2]["title"]}' for o in up[:4]) or 'Rien dans les 7 prochains jours.')
+        td = [o for o in occ if o[0].date() == today] if first <= today <= first + timedelta(days=41) else A.occurrences(today, today, events)
+        self.stat.set_text(f'{len(td)} aujourd\'hui · {sum(1 for o in td if o[3])} terminé(s) · {len(up)} cette semaine')
+        self.show_all()
+
+    def pick(self, d):
+        self.sel = d; self.refresh()
+
+    def say(self, text, ok=True):
+        self.msg.set_markup(f'<span foreground="{"#8fb090" if ok else "#c07070"}">{GLib.markup_escape_text(text)}</span>')
+
+    # ── Actions
+    def add_event(self):
+        title, when = self.e_title.get_text().strip(), self.e_when.get_text().strip().lower()
+        self.e_title.get_style_context().remove_class('bad'); self.e_when.get_style_context().remove_class('bad')
+        if not title:
+            self.e_title.get_style_context().add_class('bad'); self.e_title.grab_focus(); return self.say('Donne un titre à l\'événement.', False)
+        end = None
+        try:
+            if '-' in when and not when[:4].isdigit():            # « 9h30-11h »
+                when, e2 = (x.strip() for x in when.split('-', 1)); end = A._time(e2)
+                if not end: raise ValueError(f'heure de fin non comprise : « {e2} »')
+            base = datetime.combine(self.sel, datetime.min.time())
+            t = A._time(when) if when else (9, 0)
+            st = base.replace(hour=t[0], minute=t[1]) if t else A.parse_when(when)   # heure seule → jour sélectionné
+            en = st.replace(hour=end[0], minute=end[1]) if end else None
+            if en and en <= st: raise ValueError('la fin doit être après le début')
+        except ValueError as x:
+            self.e_when.get_style_context().add_class('bad'); self.e_when.grab_focus(); return self.say(str(x), False)
+        A.add(title, st, en, self.c_tag.get_active_id(), self.c_rep.get_active_id())
+        self.e_title.set_text(''); self.e_when.set_text(''); self.c_rep.set_active_id('none')
+        self.say(f'Ajouté : {title} — {A.fr_day(st.date())} à {st:%H:%M}'); self.go(st.date()); self.e_title.grab_focus()
+
+    def delete(self, e):
+        A.remove(e['id']); self.say(f'Supprimé : {e["title"]}'); self.refresh()
+
+    def on_key(self, _, ev):
+        k = Gdk.keyval_name(ev.keyval); typing = isinstance(self.get_focus(), Gtk.Entry)
+        if k == 'Escape':
+            if typing and (self.e_title.get_text() or self.e_when.get_text()): self.e_title.set_text(''); self.e_when.set_text(''); self.list.grab_focus()
+            else: self.destroy()
+            return True
+        if typing: return False
+        step = {'Left': -1, 'Right': 1, 'Up': -7, 'Down': 7, 'h': -1, 'l': 1, 'k': -7, 'j': 7}.get(k)
+        if step: self.go(self.sel + timedelta(days=step))
+        elif k in ('Page_Up', 'Page_Down'): self.month(-1 if k == 'Page_Up' else 1)
+        elif k == 't': self.go(date.today())
+        elif k in ('n', 'a', 'plus'): self.e_title.grab_focus()
+        elif k == 'q': self.destroy()
+        elif k == 'Delete' and self.list.get_selected_row() is not None and hasattr(self.list.get_selected_row(), 'ev'): self.delete(self.list.get_selected_row().ev)
+        else: return False
+        return True
+
+
+if __name__ == '__main__':
+    GLib.set_prgname('agenda')                      # app_id Wayland → règle Sway « agenda »
+    p = Gtk.CssProvider(); p.load_from_data(CSS)
+    Gtk.StyleContext.add_provider_for_screen(Gdk.Screen.get_default(), p, Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION)
+    w = Agenda(); w.show_all(); w.list.grab_focus()
+    Gtk.main()
