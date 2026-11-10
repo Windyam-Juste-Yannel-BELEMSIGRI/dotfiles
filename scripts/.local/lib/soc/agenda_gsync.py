@@ -7,7 +7,7 @@
 # │ Les événements Google sont remplacés à chaque synchro ; les           │
 # │ événements locaux ne sont jamais modifiés.                            │
 # ╰──────────────────────────────────────────────────────────────────────╯
-import calendar, os, re, time, urllib.request
+import calendar, os, re, time, urllib.error, urllib.request
 from datetime import date, datetime, timedelta, timezone
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
@@ -42,6 +42,11 @@ def set_url(url):
     return len(set(cur + [url]))
 
 
+def clear_urls():
+    try: os.remove(CONF); return True
+    except OSError: return False
+
+
 def fetch(url, tries=6, wait=10):
     """Télécharge le .ics ; réessaie tant que le réseau n'est pas prêt (démarrage)."""
     last = None
@@ -50,6 +55,12 @@ def fetch(url, tries=6, wait=10):
             req = urllib.request.Request(url, headers={'User-Agent': 'agenda-glass-soc'})
             with urllib.request.urlopen(req, timeout=20) as r:
                 return r.read().decode('utf-8', 'replace')
+        except urllib.error.HTTPError as x:
+            if 400 <= x.code < 500:         # adresse refusée : inutile de réessayer
+                hint = " : agenda non public — utiliser l'adresse SECRÈTE au format iCal" if x.code in (403, 404) and '/public/' in url else ''
+                raise ConnectionError(f'HTTP {x.code}{hint}')
+            last = x
+            if i < tries - 1: time.sleep(wait)
         except Exception as x:              # réseau absent, DNS, délai…
             last = x
             if i < tries - 1: time.sleep(wait)

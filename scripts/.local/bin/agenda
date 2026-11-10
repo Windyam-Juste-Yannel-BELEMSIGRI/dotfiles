@@ -103,6 +103,8 @@ def gsync(a):
         try: n = G.set_url(url)
         except ValueError as x: die(str(x))
         print(rgb(GRN, '[✔] ') + f'adresse enregistrée ({n} agenda(s)) dans {G.CONF} — lance : agenda gsync'); return
+    if sub == 'clear-url':
+        print(rgb(GRN, '[✔] adresses supprimées') if G.clear_urls() else dim('aucune adresse enregistrée')); return
     if sub == 'status':
         n = len(G.urls()); g = [e for e in A.load() if e.get('source') == 'google']
         try: last = json.load(open(stamp))
@@ -112,7 +114,7 @@ def gsync(a):
         print(rgb(ACC, '│ ') + f'événements Google en local : {len(g)}')
         print(rgb(ACC, '│ ') + 'dernière synchro : ' + (f"{last['when']} ({last['result']})" if last else 'jamais'))
         print(rgb(ACC, '╰─')); return
-    if sub != 'run': die('usage : agenda gsync [set-url [ADRESSE] | status]')
+    if sub != 'run': die('usage : agenda gsync [set-url [ADRESSE] | clear-url | status]')
     os.makedirs(A.DATA, exist_ok=True)
     def mark(res): json.dump({'when': time.strftime('%Y-%m-%d %H:%M'), 'result': res}, open(stamp, 'w'), ensure_ascii=False)
     try: n, k = G.sync()
