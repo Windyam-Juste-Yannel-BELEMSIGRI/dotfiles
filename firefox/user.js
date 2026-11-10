@@ -1,0 +1,51 @@
+// glass // SOC — Firefox (data engineer / SOC analyst). Géré par ~/dotfiles/firefox/install.sh
+// ── Démarrage / session ──
+user_pref("browser.startup.page", 3);
+user_pref("browser.tabs.groups.enabled", true);
+user_pref("browser.tabs.groups.smart.enabled", false);
+user_pref("browser.tabs.warnOnClose", false);
+user_pref("browser.shell.checkDefaultBrowser", false);
+user_pref("browser.aboutwelcome.enabled", false);
+user_pref("browser.startup.homepage_override.mstone", "ignore");
+// ── Anti-distraction : pop-ups, notifs, promos ──
+user_pref("dom.disable_open_during_load", true);
+user_pref("dom.webnotifications.enabled", false);
+user_pref("dom.push.enabled", false);
+user_pref("permissions.default.desktop-notification", 2);
+user_pref("permissions.default.geo", 2);
+user_pref("permissions.default.camera", 2);
+user_pref("permissions.default.microphone", 2);
+user_pref("media.autoplay.default", 1);
+user_pref("cookiebanners.service.mode", 1);
+user_pref("cookiebanners.service.mode.privateBrowsing", 1);
+user_pref("privacy.trackingprotection.enabled", true);
+user_pref("privacy.trackingprotection.socialtracking.enabled", true);
+user_pref("extensions.pocket.enabled", false);
+user_pref("browser.discovery.enabled", false);
+user_pref("browser.vpn_promo.enabled", false);
+user_pref("browser.promo.focus.enabled", false);
+user_pref("browser.messaging-system.whatsNewPanel.enabled", false);
+user_pref("browser.preferences.moreFromMozilla", false);
+user_pref("extensions.htmlaboutaddons.recommendations.enabled", false);
+user_pref("browser.newtabpage.activity-stream.showSponsored", false);
+user_pref("browser.newtabpage.activity-stream.showSponsoredTopSites", false);
+user_pref("browser.newtabpage.activity-stream.showSponsoredCheckboxes", false);
+user_pref("browser.newtabpage.activity-stream.feeds.section.topstories", false);
+user_pref("browser.newtabpage.activity-stream.feeds.snippets", false);
+user_pref("browser.urlbar.suggest.quicksuggest.sponsored", false);
+user_pref("browser.urlbar.suggest.quicksuggest.nonsponsored", false);
+user_pref("browser.urlbar.suggest.trending", false);
+user_pref("browser.urlbar.suggest.searches", false);
+user_pref("browser.search.suggest.enabled", false);
+user_pref("network.prefetch-next", false);
+user_pref("network.dns.disablePrefetch", true);
+// ── Look geek ──
+user_pref("toolkit.legacyUserProfileCustomizations.stylesheets", true);
+user_pref("extensions.activeThemeID", "firefox-compact-dark@mozilla.org");
+user_pref("layout.css.prefers-color-scheme.content-override", 0);
+user_pref("browser.uidensity", 1);
+user_pref("browser.toolbars.bookmarks.visibility", "always");
+user_pref("devtools.theme", "dark");
+user_pref("general.smoothScroll", false);
+user_pref("font.name.monospace.x-western", "JetBrainsMono Nerd Font");
+user_pref("browser.places.importBookmarksHTML", true);

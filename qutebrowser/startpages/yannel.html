@@ -1,0 +1,19 @@
+<!doctype html><html lang="fr"><meta charset="utf-8"><meta name="color-scheme" content="dark"><title>soc@glass</title>
+<style>
+:root{color-scheme:dark}
+#bg{position:fixed;inset:0;z-index:-1;pointer-events:none}
+body::before{content:"";position:fixed;inset:0;z-index:-2;background:repeating-linear-gradient(0deg,rgba(58,58,64,.5) 0 1px,transparent 1px 48px),repeating-linear-gradient(90deg,rgba(58,58,64,.5) 0 1px,transparent 1px 48px)}
+@media (prefers-reduced-motion:reduce){#bg{display:none}}
+html,body{margin:0;height:100%}
+body{background:#1c1c1e radial-gradient(ellipse at 50% 45%,#26302f 0,#1c1c1e 75%) fixed;color:#e8e8ec;font:15px "JetBrainsMono Nerd Font",monospace;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:28px}
+h1{margin:0;font-weight:400;font-size:26px;color:#7dd3c0} h1 span{color:#a8a8ae;font-size:14px;display:block;margin-top:6px}
+form{width:min(560px,86vw)} input{width:100%;box-sizing:border-box;padding:12px 16px;background:#1c1c1ecc;border:1px solid #3a3a40;border-radius:6px;color:#e8e8ec;font:inherit;outline:none}
+input:focus{border-color:#7dd3c0}
+.g{display:flex;flex-wrap:wrap;gap:14px;justify-content:center;max-width:1100px;padding:0 16px}
+section{background:#2a2a2eb8;backdrop-filter:blur(10px);border:1px solid #3a3a40;border-top:2px solid var(--c);border-radius:8px;padding:12px 16px;min-width:170px}
+h2{margin:0 0 8px;font-size:13px;color:var(--c);text-transform:uppercase;letter-spacing:.08em;display:flex;justify-content:space-between;gap:16px} h2 small{color:#a8a8ae;text-transform:none;letter-spacing:0}
+a{display:block;color:#e8e8ec;text-decoration:none;padding:3px 0} a:hover{color:#7dd3c0}
+</style>
+<canvas id="bg"></canvas><h1>soc@glass<span>$ whoami → analyste SOC · data engineer ▌</span></h1>
+<form action="https://duckduckgo.com/"><input name="q" placeholder="❯ rechercher…"></form>
+<div class="g"><section style="--c:#c07070"><h2>Cyber<small>,c</small></h2><a href="https://tryhackme.com/dashboard">TryHackMe</a><a href="https://overthewire.org/wargames/">OverTheWire</a><a href="https://app.hackthebox.com/home">HackTheBox</a><a href="https://academy.hackthebox.com/">HTB Academy</a></section><section style="--c:#7a9dc0"><h2>Dev<small>,d</small></h2><a href="https://github.com/Windyam-Juste-Yannel-BELEMSIGRI">GitHub</a></section><section style="--c:#8fb090"><h2>Réseaux<small>,r</small></h2><a href="https://www.netacad.com/">Cisco NetAcad</a></section><section style="--c:#d8a657"><h2>Échecs<small>,e</small></h2><a href="https://www.chess.com/home">Chess.com</a><a href="https://lichess.org/">Lichess</a></section><section style="--c:#b090c0"><h2>SOC<small>,s</small></h2><a href="https://attack.mitre.org/">ATT&CK</a><a href="https://www.virustotal.com/">VirusTotal</a><a href="https://www.abuseipdb.com/">AbuseIPDB</a><a href="https://www.shodan.io/">Shodan</a><a href="https://gchq.github.io/CyberChef/">CyberChef</a><a href="https://urlscan.io/">urlscan</a><a href="https://any.run/">ANY.RUN</a><a href="https://nvd.nist.gov/vuln/search">NVD</a><a href="https://www.exploit-db.com/">Exploit-DB</a></section><section style="--c:#7dd3c0"><h2>Data Eng<small>,n</small></h2><a href="https://www.postgresql.org/docs/current/">Postgres</a><a href="https://duckdb.org/docs/">DuckDB</a><a href="https://docs.getdbt.com/">dbt</a><a href="https://airflow.apache.org/docs/">Airflow</a><a href="https://spark.apache.org/docs/latest/">Spark</a><a href="https://kafka.apache.org/documentation/">Kafka</a><a href="https://docs.python.org/3/">Python</a></section></div><script src="anim-soc.js"></script></html>

@@ -1,0 +1,9 @@
+#!/usr/bin/env bash
+# Lanceur Firefox : réinjecte les groupes d'onglets manquants dans les profils FERMÉS, puis lance Firefox.
+D=$HOME/dotfiles/firefox; R=$HOME/.config/mozilla/firefox
+is_open(){ l=$(readlink "$1/lock" 2>/dev/null) || return 1; pid=${l##*+}; kill -0 "$pid" 2>/dev/null; }
+for pair in "7u4wermr.default-esr:main" "cuTzxyXN.Profile 1:coursera"; do
+  p="$R/${pair%%:*}"; k="${pair##*:}"
+  [ -d "$p" ] && ! is_open "$p" && python3 "$D/ensure-groups.py" "$p" "$k" >/dev/null 2>&1
+done
+exec /usr/lib/firefox-esr/firefox-esr "$@"

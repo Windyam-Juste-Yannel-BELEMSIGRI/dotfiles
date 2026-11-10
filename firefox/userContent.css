@@ -1,0 +1,8 @@
+@-moz-document url-prefix("about:"), url("about:newtab"), url("about:home"){
+  :root{--newtab-background-color:#1c1c1e !important;--newtab-background-color-secondary:#2a2a2e !important;
+        --newtab-text-primary-color:#e8e8ec !important;--newtab-primary-action-background:#7dd3c0 !important;
+        --in-content-page-background:#1c1c1e !important;--in-content-primary-button-background:#7dd3c0 !important;
+        --in-content-primary-button-text-color:#1c1c1e !important;}
+  body{font-family:"JetBrainsMono Nerd Font",monospace !important}
+}
+*{scrollbar-width:thin;scrollbar-color:#3a3a40 transparent}

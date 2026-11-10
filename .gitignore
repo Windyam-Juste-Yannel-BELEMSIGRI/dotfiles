@@ -5,3 +5,4 @@ sway/.config/sway/use-fallback
 soc/.config/soc/hooks.d/*.sh
 *.swp
 *.bak-*
+__pycache__/

@@ -1,0 +1,5 @@
+#!/usr/bin/env bash
+# Lanceur qutebrowser : choix du profil (fuzzel) ou qb yannel|coursera [url…]
+p=${1:-}
+case "$p" in yannel|coursera) shift;; *) p=$(printf 'yannel\ncoursera\n' | fuzzel --dmenu -p "profil ❯ ") || exit 0;; esac
+exec qutebrowser --basedir "$HOME/.local/share/qb/$p" "$@"

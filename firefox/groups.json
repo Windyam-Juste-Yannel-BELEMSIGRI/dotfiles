@@ -1,0 +1,11 @@
+{
+ "main": [
+  {"name":"Cyber","color":"red","tabs":[["TryHackMe","https://tryhackme.com/dashboard"],["OverTheWire","https://overthewire.org/wargames/"],["HackTheBox","https://app.hackthebox.com/home"],["HTB Academy","https://academy.hackthebox.com/"]]},
+  {"name":"Dev","color":"blue","tabs":[["GitHub","https://github.com/Windyam-Juste-Yannel-BELEMSIGRI"]]},
+  {"name":"Réseaux","color":"green","tabs":[["Cisco NetAcad","https://www.netacad.com/"]]},
+  {"name":"Échecs","color":"yellow","tabs":[["Chess.com","https://www.chess.com/home"],["Lichess","https://lichess.org/"]]}
+ ],
+ "coursera": [
+  {"name":"Coursera","color":"purple","tabs":[["Coursera","https://www.coursera.org/"],["Mes cours","https://www.coursera.org/my-learning"]]}
+ ]
+}
