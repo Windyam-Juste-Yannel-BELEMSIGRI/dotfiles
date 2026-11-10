@@ -28,6 +28,7 @@ def cfg():
                 density=float(g.get('density', 30000)), max_nodes=int(g.get('max_nodes', 140)),
                 link=float(g.get('link_distance', 190)), speed=float(g.get('speed', 14)),
                 packets=int(g.get('max_packets', 16)), opacity=float(g.get('opacity', 0.55)),
+                width=float(g.get('line_width', 1.0)), radius=float(g.get('node_radius', 1.0)),
                 line=rgb(c.get('line', '#a8a8ae')), node=rgb(c.get('node', '#a8a8ae')),
                 packet=rgb(c.get('packet', '#7dd3c0')), hot=rgb(c.get('highlight', '#8de3d0')))
 
@@ -72,7 +73,7 @@ def daemon():
             n = int(min(C['max_nodes'], self.W * self.H / C['density']))
             self.nodes = [[random.random() * self.W, random.random() * self.H,
                            (random.random() - .5) * 2 * C['speed'], (random.random() - .5) * 2 * C['speed'],
-                           random.random() * 1.6 + 1.0] for _ in range(n)]
+                           random.random() * 1.6 + C['radius']] for _ in range(n)]
             self.packets, self.last, self.acc = [], 0.0, 0.0
             self.add_events(Gdk.EventMask.POINTER_MOTION_MASK | Gdk.EventMask.LEAVE_NOTIFY_MASK)
             self.connect('motion-notify-event', lambda _, e: state.__setitem__('mouse', (e.x, e.y)))
@@ -118,14 +119,14 @@ def daemon():
                         k = 1 - math.sqrt(d2) / L
                         buckets[min(4, int(k * 5))].append((ax, ay, b[0], b[1]))
                         if spawn and random.random() < 0.0009: self.packets.append([a, b, 0.0]); spawn = len(self.packets) < C['packets']
-            cr.set_line_width(1.0)
+            cr.set_line_width(C['width'])
             for bi, segs in enumerate(buckets):
                 if not segs: continue
-                cr.set_source_rgba(*C['line'], (bi + 0.5) / 5 * 0.5 * op)
+                cr.set_source_rgba(*C['line'], min(1.0, (bi + 0.5) / 5 * 0.85 * op))
                 for x1, y1, x2, y2 in segs: cr.move_to(x1, y1); cr.line_to(x2, y2)
                 cr.stroke()
             mx, my = state['mouse']
-            cr.set_source_rgba(*C['node'], 0.7 * op)
+            cr.set_source_rgba(*C['node'], min(1.0, 0.9 * op))
             hot = []
             for n in nodes:
                 if (n[0] - mx) ** 2 + (n[1] - my) ** 2 < 150 ** 2: hot.append(n); continue
@@ -137,8 +138,8 @@ def daemon():
                 cr.fill()
             for a, b, t in self.packets:                 # paquets : halo + cœur
                 x, y = a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t
-                cr.set_source_rgba(*C['packet'], 0.18 * min(1, op + 0.3)); cr.arc(x, y, 6, 0, 6.2832); cr.fill()
-                cr.set_source_rgba(*C['packet'], min(1.0, op + 0.4)); cr.arc(x, y, 2.2, 0, 6.2832); cr.fill()
+                cr.set_source_rgba(*C['packet'], 0.18 * min(1, op + 0.3)); cr.arc(x, y, 8, 0, 6.2832); cr.fill()
+                cr.set_source_rgba(*C['packet'], min(1.0, op + 0.4)); cr.arc(x, y, 3, 0, 6.2832); cr.fill()
             return False
 
     wins = {}

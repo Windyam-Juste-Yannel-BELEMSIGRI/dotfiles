@@ -155,5 +155,5 @@ Fonctionnement :
 - Demande : animer le fond dans le style du portfolio (graphe réseau de `Hero.astro` : nœuds, liens, paquets).
 - `livebg` : GTK 3 + Cairo sur une surface transparente en couche « bottom » (au-dessus de swaybg, sous les fenêtres), par `libgtk-layer-shell` appelée en ctypes — aucun paquet à installer. Service `livebg.service` rattaché à `sway-session.target`.
 - Couche 0 écartée : Sway relance swaybg à chaque rechargement, ce qui recouvrait l'animation.
-- Mesuré : 9 à 12 % d'un cœur à 24 images/s en 2560×1600 ; 12 images/s sur batterie ; aucun calcul quand la surface n'est pas affichée (plein écran, écran éteint).
+- Mesuré : 9 à 16 % d'un cœur selon la densité (16 % avec le réglage « plus visible » : 170 nœuds, liens épais) à 24 images/s en 2560×1600 ; 12 images/s sur batterie ; aucun calcul quand la surface n'est pas affichée (plein écran, écran éteint).
 - Limite : sous une fenêtre opaque l'animation est invisible ; elle se devine sous les terminaux et fenêtres inactives transparentes.
