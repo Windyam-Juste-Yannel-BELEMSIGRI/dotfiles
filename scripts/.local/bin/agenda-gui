@@ -77,7 +77,7 @@ def B(text, cls='', cb=None, tip=None):
 class Agenda(Gtk.Window):
     def __init__(self):
         super().__init__(title='Agenda')
-        self.set_default_size(1020, 640)
+        self.set_default_size(1020, 640); self.set_size_request(1020, 640); self.set_resizable(False)
         vis = self.get_screen().get_rgba_visual()
         if vis: self.set_visual(vis)
         self.sel = date.today(); self.view = self.sel.replace(day=1); self.mtime = 0
@@ -106,7 +106,7 @@ class Agenda(Gtk.Window):
         sc = Gtk.ScrolledWindow(); sc.set_policy(Gtk.PolicyType.NEVER, Gtk.PolicyType.AUTOMATIC); right.pack_start(sc, True, True, 0)
         self.list = Gtk.ListBox(); self.list.set_selection_mode(Gtk.SelectionMode.SINGLE); sc.add(self.list)
         right.pack_start(L('À venir', 'sub'), False, False, 0)
-        self.soon = L('', 'hint'); self.soon.set_line_wrap(True); right.pack_start(self.soon, False, False, 0)
+        self.soon = L('', 'hint'); self.soon.set_ellipsize(Pango.EllipsizeMode.END); right.pack_start(self.soon, False, False, 0)
 
         # ── Ajout rapide
         add = Gtk.Box(spacing=8); root.pack_start(add, False, False, 0)
@@ -179,20 +179,21 @@ class Agenda(Gtk.Window):
             t = 'journée' if e.get('allday') else f'{st:%H:%M}' + (f' – {en:%H:%M}' if en else '')
             top = Gtk.Box(spacing=8); v.pack_start(top, False, False, 0)
             top.pack_start(L(f'<span foreground="{col[0]}">{t}</span>', 'time', markup=True), False, False, 0)
-            ttl = L(GLib.markup_escape_text(e['title']), 'evt', markup=True); ttl.set_ellipsize(Pango.EllipsizeMode.END); top.pack_start(ttl, True, True, 0)
+            ttl = L(GLib.markup_escape_text(e['title']), 'evt', markup=True); ttl.set_ellipsize(Pango.EllipsizeMode.END); ttl.set_tooltip_text(e['title']); top.pack_start(ttl, True, True, 0)
             meta = f'{col[1]} {e.get("tag", "")}'
             if e.get('repeat', 'none') != 'none': meta += f'  ↻ {A.REPEAT_FR[e["repeat"]]}'
             if e.get('source') == 'google': meta += '  󰊭 google'
             if live: meta = '● en cours   ' + meta
             elif st.date() == today and st > now and not done: meta = A.countdown(st, now) + '   ' + meta
             if e.get('note'): meta += '   ' + e['note'].split('\n')[0]
-            v.pack_start(L(meta, 'live' if live else 'hint'), False, False, 0)
+            ml = L(meta, 'live' if live else 'hint'); ml.set_ellipsize(Pango.EllipsizeMode.END); ml.set_tooltip_text(e.get('note') or None)
+            v.pack_start(ml, False, False, 0)
             h.pack_end(B('󰆴', 'danger', lambda e=e: self.delete(e), 'Supprimer'), False, False, 0)
             h.pack_end(B('✔' if done else '○', '', lambda e=e: (A.toggle_done(e['id'], self.sel), self.refresh()), 'Terminé / rouvrir'), False, False, 0)
             self.list.add(row)
         # résumé
         up = [o for o in A.occurrences(today, today + timedelta(days=7), events) if not o[3] and (o[1] or o[0] + timedelta(minutes=30)) >= now]
-        self.soon.set_text('\n'.join(f'{A.fr_day(o[0].date(), today)[:12]:<12} {o[0]:%H:%M}  {o[2]["title"]}' for o in up[:4]) or 'Rien dans les 7 prochains jours.')
+        self.soon.set_text('\n'.join(f'{A.fr_day(o[0].date(), today)[:12]:<12} {o[0]:%H:%M}  {o[2]["title"][:60]}' for o in up[:4]) or 'Rien dans les 7 prochains jours.')
         td = [o for o in occ if o[0].date() == today] if first <= today <= first + timedelta(days=41) else A.occurrences(today, today, events)
         self.stat.set_text(f'{len(td)} aujourd\'hui · {sum(1 for o in td if o[3])} terminé(s) · {len(up)} cette semaine')
         self.show_all()
@@ -251,4 +252,7 @@ if __name__ == '__main__':
     p = Gtk.CssProvider(); p.load_from_data(CSS)
     Gtk.StyleContext.add_provider_for_screen(Gdk.Screen.get_default(), p, Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION)
     w = Agenda(); w.show_all(); w.list.grab_focus()
+    # recentrage une fois la taille réelle connue (la règle Sway s'applique avant le premier rendu)
+    import subprocess
+    GLib.timeout_add(180, lambda: subprocess.run(['swaymsg', '-q', '[app_id="agenda"] move position center']) and False)
     Gtk.main()
