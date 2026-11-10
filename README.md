@@ -34,6 +34,7 @@ Ensuite, `sudo system/phase10-greetd-root.sh` installe l'écran de connexion **g
 | `agenda` · `agenda-gui` | Agenda local (JSON), récurrences, rappels mako, export/import `.ics` | `Super+C` (interface) · `Super+Ctrl+C` (menu) · module waybar |
 | `agenda gsync` | Google Agenda → agenda local au démarrage puis toutes les 30 min (`agenda gsync set-url` une fois) | minuterie `agenda-gsync.timer` |
 | `sway-opacity` | Fenêtres inactives estompées avec fondu, sur Sway standard (`~/.config/sway/opacity.conf`) | `Super+Shift+O` (activer / couper) |
+| `livebg` | Fond d'écran animé « graphe réseau » (style du portfolio), sous les fenêtres (`~/.config/sway/livebg.conf`) | `Super+Ctrl+W` (activer / couper) |
 | `ioc` | Pivot sur une IP, un domaine, une URL, un hash, une CVE ou une technique ATT&CK | `Super+Q` (depuis le presse-papiers) |
 | `casenote` | Journal d'investigation horodaté UTC en Markdown | `casenote new "Titre"` |
 | `workmode` | Prépare les espaces de travail : SOC, data ou étude | `Super+M` |

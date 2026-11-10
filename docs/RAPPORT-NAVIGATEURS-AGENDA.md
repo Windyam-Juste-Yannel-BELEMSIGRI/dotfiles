@@ -42,6 +42,7 @@ est versionné dans `~/dotfiles` et déployé par GNU stow, aucun secret dans le
 | `Super+C` | Agenda (interface) |
 | `Super+Ctrl+C` | Agenda (menu rapide) |
 | `Super+Shift+O` | Transparence : activer / couper |
+| `Super+Ctrl+W` | Fond d'écran animé : activer / couper |
 | `Super+Q` | Pivot IOC depuis le presse-papiers |
 | `Super+M` | Mode de travail (SOC / data / étude) |
 
@@ -145,3 +146,14 @@ Fonctionnement :
 
 ### 2026-11-10 — Synchronisation Google Agenda
 - `agenda gsync` + `agenda-gsync.timer` rattaché à `sway-session.target`. Reste à faire par l'utilisateur : `agenda gsync set-url`.
+
+### 2026-11-10 — Agenda : première synchronisation réelle et centrage
+- Adresse iCal secrète enregistrée par l'utilisateur : 91 événements importés. L'adresse publique renvoyait HTTP 404 (agenda privé) ; message d'erreur rendu explicite, sous-commande `clear-url`.
+- Les longs titres élargissaient la fenêtre à 1855 px : textes tronqués avec infobulle, fenêtre de taille fixe recentrée après rendu.
+
+### 2026-11-10 — Fond d'écran animé `livebg`
+- Demande : animer le fond dans le style du portfolio (graphe réseau de `Hero.astro` : nœuds, liens, paquets).
+- `livebg` : GTK 3 + Cairo sur une surface transparente en couche « bottom » (au-dessus de swaybg, sous les fenêtres), par `libgtk-layer-shell` appelée en ctypes — aucun paquet à installer. Service `livebg.service` rattaché à `sway-session.target`.
+- Couche 0 écartée : Sway relance swaybg à chaque rechargement, ce qui recouvrait l'animation.
+- Mesuré : environ 9 % d'un cœur à 24 images/s en 2560×1600 ; 12 images/s sur batterie ; aucun calcul quand la surface n'est pas affichée (plein écran, écran éteint).
+- Limite : sous une fenêtre opaque l'animation est invisible ; elle se devine sous les terminaux et fenêtres inactives transparentes.

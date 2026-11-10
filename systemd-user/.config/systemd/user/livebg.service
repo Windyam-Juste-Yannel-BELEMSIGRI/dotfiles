@@ -1,0 +1,10 @@
+[Unit]
+Description=Fond d'écran animé « graphe réseau » (couche basse de Sway, sous les fenêtres)
+PartOf=sway-session.target
+After=sway-session.target
+
+[Service]
+ExecStart=%h/.local/bin/livebg daemon
+Restart=on-failure
+RestartSec=3
+Nice=10

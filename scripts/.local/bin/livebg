@@ -1,0 +1,182 @@
+#!/usr/bin/env python3
+# ╭──────────────────────────────────────────────────────────────────────╮
+# │ livebg — fond d'écran animé « graphe réseau » (style du portfolio)    │
+# │ Nœuds qui dérivent, liens entre nœuds proches, paquets qui circulent. │
+# │ Dessiné par-dessus le fond d'écran existant (surface transparente en  │
+# │ couche basse de Sway, sous les fenêtres). Aucune dépendance à installer :       │
+# │ GTK 3 + Cairo + libgtk-layer-shell (déjà requise par waybar).         │
+# │ Usage : livebg [daemon|toggle|on|off|status]                          │
+# │ Réglages : ~/.config/sway/livebg.conf                                 │
+# │ Économie : fréquence réduite sur batterie ; aucune image calculée     │
+# │ quand l'écran est éteint ou couvert par une fenêtre en plein écran.   │
+# ╰──────────────────────────────────────────────────────────────────────╯
+import configparser, ctypes, glob, math, os, random, signal, subprocess, sys, time
+
+CONF = os.path.expanduser('~/.config/sway/livebg.conf')
+RUN = os.environ.get('XDG_RUNTIME_DIR', '/tmp')
+OFFF = f'{RUN}/livebg.off'
+UNIT = 'livebg.service'
+
+
+def cfg():
+    cp = configparser.ConfigParser(); cp.read(CONF)
+    g = cp['general'] if cp.has_section('general') else {}
+    c = cp['colors'] if cp.has_section('colors') else {}
+    def rgb(h):
+        h = h.strip().lstrip('#'); return tuple(int(h[i:i + 2], 16) / 255 for i in (0, 2, 4))
+    return dict(fps=float(g.get('fps', 24)), battery_fps=float(g.get('battery_fps', 12)),
+                density=float(g.get('density', 30000)), max_nodes=int(g.get('max_nodes', 140)),
+                link=float(g.get('link_distance', 190)), speed=float(g.get('speed', 14)),
+                packets=int(g.get('max_packets', 16)), opacity=float(g.get('opacity', 0.55)),
+                line=rgb(c.get('line', '#a8a8ae')), node=rgb(c.get('node', '#a8a8ae')),
+                packet=rgb(c.get('packet', '#7dd3c0')), hot=rgb(c.get('highlight', '#8de3d0')))
+
+
+def on_battery():
+    for p in glob.glob('/sys/class/power_supply/A*/online'):
+        try:
+            if open(p).read().strip() == '1': return False
+        except OSError: pass
+    return bool(glob.glob('/sys/class/power_supply/BAT*'))
+
+
+def daemon():
+    import gi
+    gi.require_version('Gtk', '3.0'); gi.require_version('Gdk', '3.0')
+    from gi.repository import Gdk, GLib, Gtk
+    try: ls = ctypes.CDLL('libgtk-layer-shell.so.0')
+    except OSError: sys.exit('livebg : libgtk-layer-shell introuvable (paquet libgtk-layer-shell0)')
+    ctypes.pythonapi.PyCapsule_GetPointer.restype = ctypes.c_void_p
+    ctypes.pythonapi.PyCapsule_GetPointer.argtypes = [ctypes.py_object, ctypes.c_char_p]
+    ptr = lambda o: ctypes.c_void_p(ctypes.pythonapi.PyCapsule_GetPointer(o.__gpointer__, None))
+    for f in ('gtk_layer_init_for_window', 'gtk_layer_set_layer', 'gtk_layer_set_anchor', 'gtk_layer_set_exclusive_zone',
+              'gtk_layer_set_namespace', 'gtk_layer_set_monitor'): getattr(ls, f).restype = None
+
+    C = cfg()
+    state = dict(batt=on_battery(), mouse=(-999.0, -999.0))
+
+    class Net(Gtk.Window):
+        def __init__(self, monitor):
+            super().__init__()
+            g = monitor.get_geometry(); self.W, self.H = g.width, g.height
+            vis = self.get_screen().get_rgba_visual()
+            if vis: self.set_visual(vis)
+            self.set_app_paintable(True); self.set_decorated(False)
+            p = ptr(self)
+            ls.gtk_layer_init_for_window(p); ls.gtk_layer_set_namespace(p, b'livebg')
+            # couche 1 (« bottom ») : au-dessus du fond fixe de swaybg — que Sway relance à chaque
+            # rechargement et qui recouvrirait une surface de couche 0 — et sous toutes les fenêtres
+            ls.gtk_layer_set_layer(p, 1)
+            for edge in range(4): ls.gtk_layer_set_anchor(p, edge, 1)      # plein écran
+            ls.gtk_layer_set_exclusive_zone(p, -1); ls.gtk_layer_set_monitor(p, ptr(monitor))
+            n = int(min(C['max_nodes'], self.W * self.H / C['density']))
+            self.nodes = [[random.random() * self.W, random.random() * self.H,
+                           (random.random() - .5) * 2 * C['speed'], (random.random() - .5) * 2 * C['speed'],
+                           random.random() * 1.6 + 1.0] for _ in range(n)]
+            self.packets, self.last, self.acc = [], 0.0, 0.0
+            self.add_events(Gdk.EventMask.POINTER_MOTION_MASK | Gdk.EventMask.LEAVE_NOTIFY_MASK)
+            self.connect('motion-notify-event', lambda _, e: state.__setitem__('mouse', (e.x, e.y)))
+            self.connect('leave-notify-event', lambda *_: state.__setitem__('mouse', (-999.0, -999.0)))
+            self.connect('draw', self.draw)
+            self.add_tick_callback(self.tick)       # ne tourne que lorsque Sway affiche réellement la surface
+            self.show_all()
+
+        def tick(self, _w, clock):
+            t = clock.get_frame_time() / 1e6
+            dt = min(0.25, t - self.last) if self.last else 0.0
+            self.last = t; self.acc += dt
+            step = 1.0 / (C['battery_fps'] if state['batt'] else C['fps'])
+            if self.acc >= step:
+                self.step(self.acc); self.acc = 0.0; self.queue_draw()
+            return True
+
+        def step(self, dt):
+            W, H = self.W, self.H
+            for n in self.nodes:
+                n[0] += n[2] * dt; n[1] += n[3] * dt
+                if n[0] < 0 or n[0] > W: n[2] = -n[2]; n[0] = min(max(n[0], 0), W)
+                if n[1] < 0 or n[1] > H: n[3] = -n[3]; n[1] = min(max(n[1], 0), H)
+            for p in self.packets: p[2] += dt * 0.7
+            L2 = C['link'] ** 2
+            self.packets = [p for p in self.packets if p[2] < 1 and (p[0][0] - p[1][0]) ** 2 + (p[0][1] - p[1][1]) ** 2 < L2]
+
+        def draw(self, _w, cr):
+            import cairo
+            cr.set_operator(cairo.OPERATOR_SOURCE); cr.set_source_rgba(0, 0, 0, 0); cr.paint()
+            cr.set_operator(cairo.OPERATOR_OVER)
+            nodes, L, op = self.nodes, C['link'], C['opacity']
+            L2 = L * L
+            buckets = [[] for _ in range(5)]            # liens regroupés par niveau d'opacité : 5 tracés au lieu de centaines
+            spawn = len(self.packets) < C['packets']
+            for i in range(len(nodes)):
+                a = nodes[i]; ax, ay = a[0], a[1]
+                for j in range(i + 1, len(nodes)):
+                    b = nodes[j]; dx = ax - b[0]
+                    if dx > L or dx < -L: continue
+                    dy = ay - b[1]; d2 = dx * dx + dy * dy
+                    if d2 < L2:
+                        k = 1 - math.sqrt(d2) / L
+                        buckets[min(4, int(k * 5))].append((ax, ay, b[0], b[1]))
+                        if spawn and random.random() < 0.0009: self.packets.append([a, b, 0.0]); spawn = len(self.packets) < C['packets']
+            cr.set_line_width(1.0)
+            for bi, segs in enumerate(buckets):
+                if not segs: continue
+                cr.set_source_rgba(*C['line'], (bi + 0.5) / 5 * 0.5 * op)
+                for x1, y1, x2, y2 in segs: cr.move_to(x1, y1); cr.line_to(x2, y2)
+                cr.stroke()
+            mx, my = state['mouse']
+            cr.set_source_rgba(*C['node'], 0.7 * op)
+            hot = []
+            for n in nodes:
+                if (n[0] - mx) ** 2 + (n[1] - my) ** 2 < 150 ** 2: hot.append(n); continue
+                cr.move_to(n[0] + n[4], n[1]); cr.arc(n[0], n[1], n[4], 0, 6.2832)
+            cr.fill()
+            if hot:                                      # nœuds proches du curseur : accent
+                cr.set_source_rgba(*C['hot'], min(1.0, op + 0.35))
+                for n in hot: cr.move_to(n[0] + n[4] + 1.2, n[1]); cr.arc(n[0], n[1], n[4] + 1.2, 0, 6.2832)
+                cr.fill()
+            for a, b, t in self.packets:                 # paquets : halo + cœur
+                x, y = a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t
+                cr.set_source_rgba(*C['packet'], 0.18 * min(1, op + 0.3)); cr.arc(x, y, 6, 0, 6.2832); cr.fill()
+                cr.set_source_rgba(*C['packet'], min(1.0, op + 0.4)); cr.arc(x, y, 2.2, 0, 6.2832); cr.fill()
+            return False
+
+    wins = {}
+    disp = Gdk.Display.get_default()
+    def sync_monitors(*_):
+        mons = [disp.get_monitor(i) for i in range(disp.get_n_monitors())]
+        for m in mons:
+            if m not in wins: wins[m] = Net(m)
+        for m in list(wins):
+            if m not in mons: wins.pop(m).destroy()
+    disp.connect('monitor-added', sync_monitors); disp.connect('monitor-removed', sync_monitors)
+    sync_monitors()
+
+    def slow():
+        state['batt'] = on_battery()
+        return True
+    GLib.timeout_add_seconds(15, slow)
+    GLib.unix_signal_add(GLib.PRIORITY_DEFAULT, signal.SIGTERM, Gtk.main_quit)
+    GLib.unix_signal_add(GLib.PRIORITY_DEFAULT, signal.SIGINT, Gtk.main_quit)
+    Gtk.main()
+
+
+def sysd(*a): return subprocess.run(['systemctl', '--user', *a], capture_output=True, text=True)
+
+a = sys.argv[1] if len(sys.argv) > 1 else 'daemon'
+if a == 'daemon':
+    if os.path.exists(OFFF): sys.exit(0)           # coupé par l'utilisateur pour cette session
+    daemon()
+elif a in ('toggle', 'on', 'off'):
+    active = sysd('is-active', UNIT).stdout.strip() == 'active'
+    want = (not active) if a == 'toggle' else a == 'on'
+    if want:
+        try: os.remove(OFFF)
+        except OSError: pass
+        sysd('start', UNIT)
+    else:
+        open(OFFF, 'w').close(); sysd('stop', UNIT)
+    print('fond animé', 'activé' if want else 'coupé')
+elif a == 'status': print(sysd('is-active', UNIT).stdout.strip())
+else:
+    for l in open(os.path.realpath(__file__)).read().split('\n')[2:11]: print(l.strip('# │').rstrip('│ ').rstrip())

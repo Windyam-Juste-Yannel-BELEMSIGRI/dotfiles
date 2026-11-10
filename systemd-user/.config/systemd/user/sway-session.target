@@ -9,4 +9,4 @@ Wants=graphical-session-pre.target
 After=graphical-session-pre.target
 Wants=waybar.service mako.service swayidle.service wlsunset.service kanshi.service
 Wants=cliphist-text.service cliphist-image.service polkit-agent.service battery-alert.service
-Wants=sway-opacity.service agenda-remind.timer agenda-gsync.timer
+Wants=sway-opacity.service agenda-remind.timer agenda-gsync.timer livebg.service
