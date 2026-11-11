@@ -52,6 +52,8 @@ apply_file() {
   if [[ -n ${SWAYSOCK:-} ]]; then
     swaymsg "output * bg $CUR fill #0b0f14" >/dev/null
   fi
+  # livebg (rendu OpenGL) dessine lui-même le fond : lui dire de le relire tout de suite
+  systemctl --user kill --signal=USR1 livebg.service 2>/dev/null || true
   # invalide puis précalcule (arrière-plan) l'image de verrouillage
   rm -f "$BG_DIR"/lock-*.png
   if [[ -x $HOME/.local/bin/lock-glitch ]]; then

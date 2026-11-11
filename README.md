@@ -11,7 +11,7 @@ pour les avertissements, rouge `#ff5370` pour le critique, JetBrainsMono partout
 |---|---|---|
 | Barre du haut | waybar : `~/nom▌` (curseur clignotant), espaces numérotés, `> application titre`, horloge, débits ↓/↑, CPU et RAM avec mini-courbes | Zebar |
 | Fond d'écran | `wallgen` : dégradé, halo vert, grille, coins ambre, `SOC // ONLINE` (dessiné, rien de téléchargé) | `lib/wallpaper.ps1` |
-| Animation du bureau | `livebg` : graphe réseau du portfolio (nœuds, liens, paquets cyan) + carte `status.json` aux valeurs réelles | HUD Zebar |
+| Animation du bureau | `livebg` : graphe réseau du portfolio (nœuds, liens, paquets cyan), rendu par la carte graphique (OpenGL, repli Cairo) + carte `status.json` aux valeurs réelles | HUD Zebar |
 | Fenêtres | bordure verte sur l'active, 93 % / 86 % d'opacité, marges de 12 px | GlazeWM |
 | Verrouillage | même fond avec le graphe réseau figé et `$ whoami` | étape 09 |
 | Terminal, prompt | foot (schéma SOC Matrix) et starship `┌─[user@host]─[chemin]─[git]` / `└─❯` | Windows Terminal, Oh My Posh |

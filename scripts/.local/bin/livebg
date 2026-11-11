@@ -17,6 +17,7 @@ import configparser, ctypes, glob, math, os, random, signal, socket, subprocess,
 CONF = os.path.expanduser('~/.config/sway/livebg.conf')
 RUN = os.environ.get('XDG_RUNTIME_DIR', '/tmp')
 OFFF = f'{RUN}/livebg.off'
+WALL = os.path.expanduser('~/.local/share/backgrounds/current')
 UNIT = 'livebg.service'
 FONT = 'JetBrainsMono Nerd Font'
 WORDS = 'futur SOC analyst | data engineer en devenir | logs → pipelines → détections | blue team · linux · réseaux'
@@ -31,7 +32,8 @@ def cfg():
     g = cp['general'] if cp.has_section('general') else {}
     c = cp['colors'] if cp.has_section('colors') else {}
     k = cp['card'] if cp.has_section('card') else {}
-    return dict(fps=float(g.get('fps', 24)), battery_fps=float(g.get('battery_fps', 12)),
+    return dict(renderer=str(g.get('renderer', 'auto')).strip().lower(),
+                fps=float(g.get('fps', 24)), battery_fps=float(g.get('battery_fps', 12)),
                 net_fps=float(g.get('net_fps', 8)), battery_net_fps=float(g.get('battery_net_fps', 5)),
                 density=float(g.get('density', 30000)), max_nodes=int(g.get('max_nodes', 140)),
                 link=float(g.get('link_distance', 190)), speed=float(g.get('speed', 14)),
@@ -96,11 +98,23 @@ class Stats:
 
 
 def daemon():
+    C0 = cfg()
     import gi
     gi.require_version('Gtk', '3.0'); gi.require_version('Gdk', '3.0')
     gi.require_version('Pango', '1.0'); gi.require_version('PangoCairo', '1.0')
-    from gi.repository import Gdk, GLib, Gtk, Pango, PangoCairo
+    gi.require_version('GdkPixbuf', '2.0')
+    from gi.repository import Gdk, GdkPixbuf, GLib, Gtk, Pango, PangoCairo
     import cairo
+    from array import array
+    GL = None
+    if C0['renderer'] != 'cairo':
+        try:
+            os.environ.setdefault('PYOPENGL_PLATFORM', 'egl')        # GTK sous Wayland crée un contexte EGL
+            import warnings; warnings.simplefilter('ignore', SyntaxWarning)
+            import OpenGL; OpenGL.ERROR_CHECKING = False              # pas de glGetError après chaque appel
+            from OpenGL import GL
+        except Exception as e:
+            print(f'livebg : PyOpenGL absent ({e}) → rendu Cairo (paquet python3-opengl)', file=sys.stderr, flush=True)
     try: ls = ctypes.CDLL('libgtk-layer-shell.so.0')
     except OSError: sys.exit('livebg : libgtk-layer-shell introuvable (paquet libgtk-layer-shell0)')
     ctypes.pythonapi.PyCapsule_GetPointer.restype = ctypes.c_void_p
@@ -109,16 +123,18 @@ def daemon():
     for f in ('gtk_layer_init_for_window', 'gtk_layer_set_layer', 'gtk_layer_set_anchor', 'gtk_layer_set_exclusive_zone',
               'gtk_layer_set_namespace', 'gtk_layer_set_monitor', 'gtk_layer_set_margin'): getattr(ls, f).restype = None
 
-    C = cfg()
-    state = dict(batt=on_battery(), mouse=(-999.0, -999.0))
+    C = C0
+    state = dict(batt=on_battery(), mouse=(-999.0, -999.0), wall_check=True)
     stats = Stats()
     LEFT, RIGHT, TOP, BOTTOM = range(4)
 
-    def layer(win, monitor, name):
+    def layer(win, monitor, name, opaque=False):
         """Surface transparente en couche 1 (« bottom ») : au-dessus du fond fixe de swaybg — que Sway relance
         à chaque rechargement et qui recouvrirait une surface de couche 0 — et sous toutes les fenêtres."""
-        vis = win.get_screen().get_rgba_visual()
-        if vis: win.set_visual(vis)
+        if not opaque:
+            vis = win.get_screen().get_rgba_visual()
+            if vis: win.set_visual(vis)
+        # sans cela GTK peindrait d'abord son propre fond de fenêtre (plein écran, sur le processeur) à chaque image
         win.set_app_paintable(True); win.set_decorated(False)
         p = ptr(win)
         ls.gtk_layer_init_for_window(p); ls.gtk_layer_set_namespace(p, name)
@@ -229,6 +245,257 @@ def daemon():
                 cr.set_source_rgba(*C['packet'], min(1.0, op + 0.4)); cr.arc(x, y, 3, 0, 6.2832); cr.fill()
             return False
 
+    class NetGL(Gtk.Window):
+        """Même graphe, dessiné par la carte graphique (OpenGL). Python ne fait plus que déplacer les nœuds et
+        lister les liens ; le tracé — ce qui coûtait avec Cairo — devient deux appels de dessin par image.
+        La surface est OPAQUE : elle dessine elle-même le fond d'écran (texture), puis le graphe par-dessus.
+        Une surface OpenGL transparente obligerait GTK à renvoyer 16 Mo de pixels à chaque image (mesuré :
+        10 % d'un cœur, autant qu'avec Cairo) ; opaque, l'image va droit à l'écran."""
+        BG_VS = """
+            in vec2 corner; uniform vec2 cover; out vec2 uv;
+            void main() { uv = vec2(0.5 + corner.x * 0.5 * cover.x, 0.5 - corner.y * 0.5 * cover.y); gl_Position = vec4(corner, 0.0, 1.0); }"""
+        BG_FS = """
+            in vec2 uv; uniform sampler2D tex; out vec4 frag;
+            void main() { frag = vec4(texture(tex, uv).rgb, 1.0); }"""
+        QUAD = (-1.0, -1.0, 1.0, -1.0, -1.0, 1.0, 1.0, 1.0)
+        REFRESH = 0.25      # s : Python ne recalcule positions et liens que 4 fois par seconde
+        # Entre deux recalculs, c'est le shader qui déplace les nœuds : position = départ + vitesse × tau,
+        # avec rebond sur les bords. Chaque image ne coûte alors à Python qu'une poignée d'appels.
+        COMMON = """
+            uniform vec2 res; uniform float tau;
+            vec2 pos(vec4 n) { vec2 q = n.xy + n.zw * tau; return res - abs(mod(q, 2.0 * res) - res); }
+            vec4 clip(vec2 p) { return vec4(p.x / res.x * 2.0 - 1.0, 1.0 - p.y / res.y * 2.0, 0.0, 1.0); }
+        """
+        LINE_VS = """
+            in vec2 corner; in vec4 a; in vec4 b;
+            uniform float hw; uniform float link; uniform float ka;
+            out float v_a; out float v_d;
+            void main() {
+                vec2 pa = pos(a), pb = pos(b); vec2 d = pb - pa; float len = max(length(d), 0.001);
+                vec2 t = d / len; vec2 n = vec2(-t.y, t.x); float e = hw + 1.0;
+                vec2 p = mix(pa, pb, (corner.x + 1.0) * 0.5) + n * corner.y * e;
+                v_d = corner.y * e; v_a = max(0.0, 1.0 - len / link) * ka;      // s'éteint en douceur à la distance limite
+                gl_Position = clip(p);
+            }"""
+        LINE_FS = """
+            in float v_a; in float v_d; uniform vec3 color; uniform float hw; out vec4 frag;
+            void main() { frag = vec4(color, v_a * clamp(hw + 0.5 - abs(v_d), 0.0, 1.0)); }"""
+        DOT_VS = """
+            in vec2 corner; in vec4 n; in float rad;
+            uniform vec2 mouse; uniform vec4 col; uniform vec4 hot;
+            out vec2 v_p; out float v_r; out vec4 v_c;
+            void main() {
+                vec2 c = pos(n); bool h = distance(c, mouse) < 150.0;
+                v_r = h ? rad + 1.2 : rad; v_c = h ? hot : col;
+                v_p = corner * (v_r + 1.0);
+                gl_Position = clip(c + v_p);
+            }"""
+        PKT_VS = """
+            in vec2 corner; in vec4 a; in vec4 b; in float t0;
+            uniform float rad; uniform vec4 col; uniform float link;
+            out vec2 v_p; out float v_r; out vec4 v_c;
+            void main() {
+                vec2 pa = pos(a), pb = pos(b); float t = t0 + tau * 0.7;
+                bool live = t < 1.0 && distance(pa, pb) < link;
+                v_r = rad; v_c = live ? col : vec4(0.0); v_p = corner * (rad + 1.0);
+                gl_Position = clip(mix(pa, pb, clamp(t, 0.0, 1.0)) + v_p);
+            }"""
+        DOT_FS = """
+            in vec2 v_p; in float v_r; in vec4 v_c; out vec4 frag;
+            void main() { frag = vec4(v_c.rgb, v_c.a * clamp(v_r + 0.5 - length(v_p), 0.0, 1.0)); }"""
+
+        def __init__(self, monitor, fallback):
+            super().__init__()
+            g = monitor.get_geometry(); self.W, self.H = g.width, g.height
+            self.fallback, self.ok = fallback, False
+            self.wall, self.tex, self.cover = None, 0, (1.0, 1.0)
+            p = layer(self, monitor, b'livebg', opaque=True)
+            for edge in range(4): ls.gtk_layer_set_anchor(p, edge, 1)
+            n = int(min(C['max_nodes'], self.W * self.H / C['density']))
+            self.nodes = [[random.random() * self.W, random.random() * self.H,
+                           (random.random() - .5) * 2 * C['speed'], (random.random() - .5) * 2 * C['speed'],
+                           random.random() * 1.6 + C['radius']] for _ in range(n)]
+            self.packets, self.last, self.n_lines = [], 0.0, 0
+            self.area = Gtk.GLArea(); self.area.set_has_alpha(False); self.area.set_auto_render(False)
+            self.area.set_required_version(3, 3)
+            self.area.connect('realize', self.on_realize); self.area.connect('render', self.on_render)
+            self.add(self.area)
+            self.add_events(Gdk.EventMask.POINTER_MOTION_MASK | Gdk.EventMask.LEAVE_NOTIFY_MASK)
+            self.connect('motion-notify-event', lambda _, e: state.__setitem__('mouse', (e.x, e.y)))
+            self.connect('leave-notify-event', lambda *_: state.__setitem__('mouse', (-999.0, -999.0)))
+            self.show_all()
+
+        def fail(self, why):
+            print(f'livebg : OpenGL indisponible ({why}) → rendu Cairo', file=sys.stderr, flush=True)
+            self.ok = False
+            GLib.idle_add(self.fallback, self)
+
+        def on_realize(self, area):
+            try:
+                area.make_current()
+                if area.get_error(): raise RuntimeError(area.get_error().message)
+                es = area.get_context().get_use_es()
+                head = '#version 300 es\nprecision highp float;\n' if es else '#version 330 core\n'
+                def program(vs, fs, attrs):
+                    prog = GL.glCreateProgram()
+                    for kind, src in ((GL.GL_VERTEX_SHADER, vs), (GL.GL_FRAGMENT_SHADER, fs)):
+                        sh = GL.glCreateShader(kind)
+                        GL.glShaderSource(sh, head + (self.COMMON if kind == GL.GL_VERTEX_SHADER else '') + src); GL.glCompileShader(sh)
+                        if not GL.glGetShaderiv(sh, GL.GL_COMPILE_STATUS): raise RuntimeError(GL.glGetShaderInfoLog(sh))
+                        GL.glAttachShader(prog, sh)
+                    for i, name in enumerate(attrs): GL.glBindAttribLocation(prog, i, name)
+                    GL.glLinkProgram(prog)
+                    if not GL.glGetProgramiv(prog, GL.GL_LINK_STATUS): raise RuntimeError(GL.glGetProgramInfoLog(prog))
+                    return prog
+                self.p_line = program(self.LINE_VS, self.LINE_FS, ('corner', 'a', 'b'))
+                self.p_dot = program(self.DOT_VS, self.DOT_FS, ('corner', 'n', 'rad'))
+                self.p_pkt = program(self.PKT_VS, self.DOT_FS, ('corner', 'a', 'b', 't0'))
+                self.p_bg = program(self.BG_VS, self.BG_FS, ('corner',))
+                quad = GL.glGenBuffers(1); GL.glBindBuffer(GL.GL_ARRAY_BUFFER, quad)
+                data = array('f', self.QUAD).tobytes(); GL.glBufferData(GL.GL_ARRAY_BUFFER, len(data), data, GL.GL_STATIC_DRAW)
+                def vao(layout, stride):
+                    """Un carré partagé (attribut 0) + un tampon d'instances : une ligne par lien ou par disque."""
+                    v = GL.glGenVertexArrays(1); GL.glBindVertexArray(v)
+                    GL.glBindBuffer(GL.GL_ARRAY_BUFFER, quad)
+                    GL.glEnableVertexAttribArray(0); GL.glVertexAttribPointer(0, 2, GL.GL_FLOAT, False, 0, ctypes.c_void_p(0))
+                    buf = GL.glGenBuffers(1); GL.glBindBuffer(GL.GL_ARRAY_BUFFER, buf)
+                    off = 0
+                    for i, size in enumerate(layout, 1):
+                        GL.glEnableVertexAttribArray(i)
+                        GL.glVertexAttribPointer(i, size, GL.GL_FLOAT, False, stride * 4, ctypes.c_void_p(off * 4))
+                        GL.glVertexAttribDivisor(i, 1); off += size
+                    return v, buf
+                self.v_line, self.b_line = vao((4, 4), 8)
+                self.v_dot, self.b_dot = vao((4, 1), 5)
+                self.v_pkt, self.b_pkt = vao((4, 4, 1), 9)
+                self.v_bg, _ = vao((), 0)
+                GL.glBindVertexArray(0)
+                self.u = {(p, n): GL.glGetUniformLocation(p, n) for p, names in
+                          ((self.p_line, ('res', 'tau', 'hw', 'color', 'link', 'ka')), (self.p_dot, ('res', 'tau', 'mouse', 'col', 'hot')),
+                           (self.p_pkt, ('res', 'tau', 'rad', 'col', 'link')), (self.p_bg, ('cover', 'tex'))) for n in names}
+                op = C['opacity']                        # uniformes qui ne changent jamais : posés une fois
+                for prog in (self.p_line, self.p_dot, self.p_pkt):
+                    GL.glUseProgram(prog); GL.glUniform2f(self.u[prog, 'res'], self.W, self.H)
+                GL.glUseProgram(self.p_line)
+                GL.glUniform1f(self.u[self.p_line, 'hw'], C['width'] / 2); GL.glUniform3f(self.u[self.p_line, 'color'], *C['line'])
+                GL.glUniform1f(self.u[self.p_line, 'link'], C['link']); GL.glUniform1f(self.u[self.p_line, 'ka'], 0.85 * op)
+                GL.glUseProgram(self.p_dot)
+                GL.glUniform4f(self.u[self.p_dot, 'col'], *C['node'], min(1.0, 0.9 * op))
+                GL.glUniform4f(self.u[self.p_dot, 'hot'], *C['hot'], min(1.0, op + 0.35))
+                GL.glUseProgram(self.p_pkt); GL.glUniform1f(self.u[self.p_pkt, 'link'], C['link'])
+                GL.glUseProgram(0)
+                name = GL.glGetString(GL.GL_RENDERER)
+                print('livebg : rendu OpenGL —', name.decode() if isinstance(name, bytes) else name, flush=True)
+                self.ok = True
+            except Exception as e:                       # pilote, version ou shader refusé : on repasse à Cairo
+                self.fail(str(e).strip()[:200])
+
+        def tick(self, now, net_due):
+            if self.ok: self.area.queue_render()
+
+        def load_wallpaper(self):
+            """(Re)charge le fond d'écran courant en texture s'il a changé (fichier ou date)."""
+            try:
+                path = os.path.realpath(WALL); key = (path, os.stat(path).st_mtime)
+            except OSError: key = None
+            if key == self.wall: return
+            self.wall = key
+            if self.tex: GL.glDeleteTextures([self.tex]); self.tex = 0
+            if not key: return
+            try:
+                pb = GdkPixbuf.Pixbuf.new_from_file(key[0])
+                iw, ih, ch = pb.get_width(), pb.get_height(), pb.get_n_channels()
+                self.tex = GL.glGenTextures(1); GL.glBindTexture(GL.GL_TEXTURE_2D, self.tex)
+                GL.glPixelStorei(GL.GL_UNPACK_ALIGNMENT, 1); GL.glPixelStorei(GL.GL_UNPACK_ROW_LENGTH, pb.get_rowstride() // ch)
+                fmt = GL.GL_RGBA if ch == 4 else GL.GL_RGB
+                GL.glTexImage2D(GL.GL_TEXTURE_2D, 0, GL.GL_RGBA8 if ch == 4 else GL.GL_RGB8, iw, ih, 0, fmt, GL.GL_UNSIGNED_BYTE, pb.get_pixels())
+                GL.glPixelStorei(GL.GL_UNPACK_ROW_LENGTH, 0)
+                for k, v in ((GL.GL_TEXTURE_MIN_FILTER, GL.GL_LINEAR), (GL.GL_TEXTURE_MAG_FILTER, GL.GL_LINEAR),
+                             (GL.GL_TEXTURE_WRAP_S, GL.GL_CLAMP_TO_EDGE), (GL.GL_TEXTURE_WRAP_T, GL.GL_CLAMP_TO_EDGE)):
+                    GL.glTexParameteri(GL.GL_TEXTURE_2D, k, v)
+                sa, ia = self.W / self.H, iw / ih        # mode « fill » de swaybg : remplir l'écran, rogner ce qui dépasse
+                self.cover = (sa / ia, 1.0) if ia > sa else (1.0, ia / sa)
+            except Exception as e:
+                print(f'livebg : fond illisible ({e}) → couleur unie', file=sys.stderr, flush=True)
+                if self.tex: GL.glDeleteTextures([self.tex])
+                self.tex = 0
+
+        def on_render(self, area, _ctx):
+            if not self.ok: return True
+            try: self.render(area)
+            except Exception as e: self.fail(str(e).strip()[:200])
+            return True
+
+        def refresh(self, now):
+            """4 fois par seconde : avance les nœuds, liste les paires proches, envoie le tout à la carte graphique."""
+            dt = min(0.5, now - self.last) if self.last else 0.0
+            self.last = now
+            W, H = self.W, self.H
+            for n in self.nodes:
+                n[0] += n[2] * dt; n[1] += n[3] * dt
+                if n[0] < 0 or n[0] > W: n[2] = -n[2]; n[0] = min(max(n[0], 0), W)
+                if n[1] < 0 or n[1] > H: n[3] = -n[3]; n[1] = min(max(n[1], 0), H)
+            L = C['link']; L2 = L * L
+            R = L + 4 * C['speed'] * self.REFRESH + 2    # marge : paires qui peuvent se rapprocher sous L avant le prochain recalcul
+            R2 = R * R
+            for p in self.packets: p[2] += dt * 0.7
+            self.packets = [p for p in self.packets if p[2] < 1 and (p[0][0] - p[1][0]) ** 2 + (p[0][1] - p[1][1]) ** 2 < L2]
+            grid = {}
+            for n in self.nodes: grid.setdefault((int(n[0] // R), int(n[1] // R)), []).append(n)
+            lines = array('f'); add = lines.extend
+            room, chance, rnd = C['packets'] - len(self.packets), 0.022 * dt, random.random
+            for (cx, cy), cell in grid.items():
+                for ox, oy in ((0, 0), (1, 0), (-1, 1), (0, 1), (1, 1)):
+                    other = cell if not (ox or oy) else grid.get((cx + ox, cy + oy))
+                    if not other: continue
+                    for i, a in enumerate(cell):
+                        ax, ay = a[0], a[1]
+                        for b in (cell[i + 1:] if other is cell else other):
+                            dx = ax - b[0]; dy = ay - b[1]; d2 = dx * dx + dy * dy
+                            if d2 < R2:
+                                add(a[:4]); add(b[:4])
+                                if room > 0 and d2 < L2 and rnd() < chance: self.packets.append([a, b, 0.0]); room -= 1
+            dots = array('f')
+            for n in self.nodes: dots.extend(n)
+            pk = array('f')
+            for a, b, t in self.packets: pk.extend(a[:4]); pk.extend(b[:4]); pk.append(t)
+            self.n_lines = len(lines) // 8
+            for buf, arr in ((self.b_line, lines), (self.b_dot, dots), (self.b_pkt, pk)):
+                data = arr.tobytes()
+                GL.glBindBuffer(GL.GL_ARRAY_BUFFER, buf); GL.glBufferData(GL.GL_ARRAY_BUFFER, len(data), data, GL.GL_DYNAMIC_DRAW)
+
+        def render(self, area):
+            # Appelé seulement quand Sway affiche la surface : rien n'est calculé sous un plein écran.
+            now = time.monotonic()
+            if now - self.last >= self.REFRESH: self.refresh(now)
+            tau = now - self.last
+            sc = area.get_scale_factor()
+            GL.glViewport(0, 0, area.get_allocated_width() * sc, area.get_allocated_height() * sc)
+            if state['wall_check']: self.load_wallpaper()
+            if self.tex:                                 # fond d'écran, puis le graphe par-dessus
+                GL.glDisable(GL.GL_BLEND); GL.glUseProgram(self.p_bg)
+                GL.glUniform2f(self.u[self.p_bg, 'cover'], *self.cover); GL.glUniform1i(self.u[self.p_bg, 'tex'], 0)
+                GL.glActiveTexture(GL.GL_TEXTURE0); GL.glBindTexture(GL.GL_TEXTURE_2D, self.tex)
+                GL.glBindVertexArray(self.v_bg); GL.glDrawArrays(GL.GL_TRIANGLE_STRIP, 0, 4)
+            else:
+                GL.glClearColor(11 / 255, 15 / 255, 20 / 255, 1); GL.glClear(GL.GL_COLOR_BUFFER_BIT)
+            GL.glEnable(GL.GL_BLEND); GL.glBlendFunc(GL.GL_SRC_ALPHA, GL.GL_ONE_MINUS_SRC_ALPHA)
+            if self.n_lines:
+                GL.glUseProgram(self.p_line); GL.glUniform1f(self.u[self.p_line, 'tau'], tau)
+                GL.glBindVertexArray(self.v_line); GL.glDrawArraysInstanced(GL.GL_TRIANGLE_STRIP, 0, 4, self.n_lines)
+            GL.glUseProgram(self.p_dot); GL.glUniform1f(self.u[self.p_dot, 'tau'], tau)
+            GL.glUniform2f(self.u[self.p_dot, 'mouse'], *state['mouse'])
+            GL.glBindVertexArray(self.v_dot); GL.glDrawArraysInstanced(GL.GL_TRIANGLE_STRIP, 0, 4, len(self.nodes))
+            if self.packets:                             # paquets : halo, puis cœur
+                op = C['opacity']
+                GL.glUseProgram(self.p_pkt); GL.glUniform1f(self.u[self.p_pkt, 'tau'], tau)
+                GL.glBindVertexArray(self.v_pkt)
+                for rad, alpha in ((8.0, 0.18 * min(1, op + 0.3)), (3.0, min(1.0, op + 0.4))):
+                    GL.glUniform1f(self.u[self.p_pkt, 'rad'], rad); GL.glUniform4f(self.u[self.p_pkt, 'col'], *C['packet'], alpha)
+                    GL.glDrawArraysInstanced(GL.GL_TRIANGLE_STRIP, 0, 4, len(self.packets))
+            GL.glBindVertexArray(0); GL.glUseProgram(0)
+            state['wall_check'] = False
+
     class Card(Gtk.Window):
         """Carte « status.json » du portfolio : petite surface à part, redessinée seulement quand son texte change."""
         CW, CH, PAD, HEAD = 452, 320, 20, 38
@@ -245,7 +512,10 @@ def daemon():
             probe = PangoCairo.create_layout(cairo.Context(cairo.ImageSurface(cairo.FORMAT_ARGB32, 8, 8)))
             probe.set_font_description(self.font); probe.set_spacing(int(7 * Pango.SCALE)); probe.set_markup(self.markup(), -1)
             self.CH = self.HEAD + 16 + probe.get_pixel_size()[1] + 18      # hauteur ajustée au texte
+            probe.set_markup(self.typed_markup() + "\n<span size='4000'> </span>\n<span> </span>", -1)
+            self.json_y = self.HEAD + 16 + probe.index_to_pos(probe.get_text().__len__() and len(probe.get_text().encode()) - 1).y / Pango.SCALE
             self.set_size_request(self.CW, self.CH)
+            self.cache, self.cache_key = None, None
             self.connect('draw', self.draw)
             self.show_all()
             if len(self.words) > 1: GLib.timeout_add(2400, self.type)
@@ -257,26 +527,29 @@ def daemon():
             wait = 35 if self.erasing else 70
             if not self.erasing and self.i >= len(word): self.erasing, wait = True, 2200
             elif self.erasing and self.i <= 0: self.erasing, self.w, wait = False, (self.w + 1) % len(self.words), 300
-            self.queue_draw()
+            self.queue_draw_area(0, self.HEAD + 1, self.CW, int(self.json_y) - self.HEAD - 1)
             GLib.timeout_add(wait, self.type)
             return False
 
         def cursor(self):
-            self.blink = not self.blink; self.queue_draw(); return True
+            self.blink = not self.blink
+            self.queue_draw_area(0, self.HEAD + 1, self.CW, int(self.json_y) - self.HEAD - 1); return True
 
-        def markup(self):
+        def typed_markup(self):
+            e = GLib.markup_escape_text
+            cur = f"<span color='{self.ACC}'>▌</span>" if self.blink else "<span alpha='1'>▌</span>"
+            return (f"<span color='{self.ACC}'>$</span> whoami\n"
+                    f"<span color='{self.DIM}'>&gt;</span> {e(self.words[self.w][:self.i])}{cur}")
+
+        def json_markup(self):
             e = GLib.markup_escape_text
             A, K, D, N = self.ACC, self.CYAN, self.DIM, self.AMBER
             lvl = stats.level
             pc = self.RED if lvl == 'crit' else N if lvl == 'warn' else A
             pipe = 'saturated' if lvl == 'crit' else 'degraded' if lvl == 'warn' else 'nominal'
-            cur = f"<span color='{A}'>▌</span>" if self.blink else "<span alpha='1'>▌</span>"
             k = lambda name: f"<span color='{K}'>\"{name}\"</span>"
             sv = lambda val, col=A: f"<span color='{col}'>\"{e(val)}\"</span>"
             return '\n'.join((
-                f"<span color='{A}'>$</span> whoami",
-                f"<span color='{D}'>&gt;</span> {e(self.words[self.w][:self.i])}{cur}",
-                f"<span size='4000'> </span>",
                 f"<span color='{D}'>{{</span>",
                 f"  {k('host')}: {sv(stats.host)},",
                 f"  {k('uptime')}: {sv(stats.uptime)},",
@@ -285,10 +558,19 @@ def daemon():
                 f"  {k('pipeline')}: {sv(pipe, pc)}",
                 f"<span color='{D}'>}}</span>"))
 
-        def draw(self, _w, cr):
+        def markup(self): return self.typed_markup() + "\n<span size='4000'> </span>\n" + self.json_markup()
+
+        def layout(self, cr, markup):
+            lay = PangoCairo.create_layout(cr); lay.set_font_description(self.font)
+            lay.set_spacing(int(7 * Pango.SCALE)); lay.set_markup(markup, -1)
+            return lay
+
+        def paint_static(self):
+            """Cadre, en-tête et bloc JSON : ne changent qu'avec les statistiques (toutes les 5 s) → gardés en cache.
+            Seule la ligne tapée à la machine est remise en page à chaque frappe."""
             W, H, r = self.CW, self.CH, 12
-            cr.set_operator(cairo.OPERATOR_SOURCE); cr.set_source_rgba(0, 0, 0, 0); cr.paint()
-            cr.set_operator(cairo.OPERATOR_OVER)
+            self.cache = cairo.ImageSurface(cairo.FORMAT_ARGB32, W, H)
+            cr = cairo.Context(self.cache)
             def box():
                 cr.new_sub_path()
                 cr.arc(W - r - .5, r + .5, r, -math.pi / 2, 0); cr.arc(W - r - .5, H - r - .5, r, 0, math.pi / 2)
@@ -308,17 +590,28 @@ def daemon():
             lay = PangoCairo.create_layout(cr); lay.set_font_description(self.font)
             lay.set_markup(f"<span color='{self.DIM}'>status.json</span>", -1)
             _, h = lay.get_pixel_size(); cr.move_to(self.PAD + 3 * 17 + 6, (self.HEAD - h) / 2); PangoCairo.show_layout(cr, lay)
-            lay.set_spacing(int(7 * Pango.SCALE)); lay.set_markup(self.markup(), -1)
-            cr.set_source_rgba(*rgb(self.FG), 1); cr.move_to(self.PAD + 2, self.HEAD + 16); PangoCairo.show_layout(cr, lay)
+            cr.set_source_rgba(*rgb(self.FG), 1); cr.move_to(self.PAD + 2, self.json_y); PangoCairo.show_layout(cr, self.layout(cr, self.json_markup()))
+
+        def draw(self, _w, cr):
+            key = (stats.host, stats.uptime, stats.cpu, stats.mem, stats.net)
+            if key != self.cache_key: self.cache_key = key; self.paint_static()
+            cr.set_operator(cairo.OPERATOR_SOURCE); cr.set_source_surface(self.cache, 0, 0); cr.paint()
+            cr.set_operator(cairo.OPERATOR_OVER)
+            cr.set_source_rgba(*rgb(self.FG), 1); cr.move_to(self.PAD + 2, self.HEAD + 16); PangoCairo.show_layout(cr, self.layout(cr, self.typed_markup()))
             return False
 
     wins = {}
+    def to_cairo(win):                                   # repli : remplace une surface OpenGL en échec par Cairo
+        for m, ws in wins.items():
+            if ws and ws[0] is win:
+                win.destroy(); ws[0] = Net(m)
+        return False
     disp = Gdk.Display.get_default()
     def sync_monitors(*_):
         mons = [disp.get_monitor(i) for i in range(disp.get_n_monitors())]
         for m in mons:
             if m not in wins:
-                wins[m] = [Net(m)]
+                wins[m] = [NetGL(m, to_cairo) if GL else Net(m)]
                 if C['card'] and (m.is_primary() or m == mons[0]) and not any(len(v) > 1 for v in wins.values()):
                     wins[m].append(Card(m))
         for m in list(wins):
@@ -343,14 +636,16 @@ def daemon():
         timer[0] = GLib.timeout_add(max(15, int(1000 / max(1.0, fps))), frame)
     arm()
 
-    def slow():                                          # toutes les 5 s : statistiques de la carte, secteur / batterie
-        stats.read()
+    def slow():                                          # toutes les 5 s : statistiques de la carte, secteur / batterie, fond changé ?
+        stats.read(); state['wall_check'] = True
         for ws in wins.values():
             for w in ws[1:]: w.queue_draw()
         batt = on_battery()
         if batt != state['batt']: state['batt'] = batt; arm()
         return True
     GLib.timeout_add_seconds(5, slow)
+    def nudge(): state['wall_check'] = True; return True   # SIGUSR1 (set-wallpaper) : relire le fond tout de suite
+    GLib.unix_signal_add(GLib.PRIORITY_DEFAULT, signal.SIGUSR1, nudge)
     GLib.unix_signal_add(GLib.PRIORITY_DEFAULT, signal.SIGTERM, Gtk.main_quit)
     GLib.unix_signal_add(GLib.PRIORITY_DEFAULT, signal.SIGINT, Gtk.main_quit)
     Gtk.main()

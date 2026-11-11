@@ -12,3 +12,4 @@ adwaita-qt6
 qt6-wayland
 qtwayland5
 libglib2.0-bin
+python3-opengl

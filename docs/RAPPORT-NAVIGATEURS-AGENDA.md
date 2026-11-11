@@ -177,3 +177,13 @@ Fonctionnement :
 - `config.py` : onglet actif vert sur fond `#1b3a33`, onglets épinglés en cyan, URL verte en HTTPS et ambre en HTTP, survol cyan, complétion et menus sur le même fond de sélection, coins arrondis. Vérifié : chargement sans erreur dans une instance temporaire.
 - waybar : barre du haut 36 → 42 px (texte 13 → 15 px), barre du bas 26 → 32 px (texte 12 → 13,5 px).
 
+### 2026-11-11 — `livebg` rendu par la carte graphique (OpenGL)
+- Demande : utiliser la carte graphique pour l'animation. Paquet ajouté : `python3-opengl` (dépôt officiel Debian).
+- `livebg` a deux moteurs (`renderer = auto | gl | cairo` dans `livebg.conf`). `auto` prend OpenGL et repasse seul à Cairo si PyOpenGL manque ou si le contexte, un shader ou une image échoue.
+- OpenGL : liens, nœuds et paquets sont des carrés instanciés, lissés dans le shader. Les nœuds avancent dans le shader (départ + vitesse × temps, rebond sur les bords) ; Python ne recalcule positions et paires proches que 4 fois par seconde. Tout le graphe est de nouveau à 24 images/s.
+- La surface OpenGL est opaque et dessine elle-même le fond d'écran (texture, cadrage « fill »). Transparente, GTK renvoyait toute la surface à chaque image : 10 % d'un cœur, aucun gain. `set-wallpaper` prévient `livebg` par SIGUSR1 ; sinon le fond est relu sous 5 s.
+- Carte `status.json` : cadre et bloc JSON gardés en cache, seule la ligne tapée est remise en page.
+- Mesuré (2560×1600, 170 nœuds, moyenne de 3 × 10 s) : `livebg` 5,1 % d'un cœur, Sway 4,8 %. Rappel : Cairo d'origine 16,7 % + 5,2 % ; Cairo à deux cadences 9,1 % + 3,5 % (graphe à 8 images/s). Mémoire de `livebg` : 173 Mo (63 Mo en Cairo), à cause de Mesa et PyOpenGL.
+- Rendu sur la carte Intel intégrée (« Mesa Intel Graphics (RPL-S) ») ; la NVIDIA reste `suspended`.
+- Limite : sur les 5,1 %, le code Python ne pèse que 1,7 % ; le reste est le coût fixe de GTK 3 par image en plein écran. Descendre plus bas demanderait de quitter GTK (client Wayland + EGL direct).
+
