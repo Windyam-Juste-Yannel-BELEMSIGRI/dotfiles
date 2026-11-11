@@ -170,3 +170,10 @@ Fonctionnement :
 - Reste à faire à la main (droits root ou application ouverte) : `sudo system/phase9-boot-theme-root.sh` pour GRUB et les consoles ; `firefox/install.sh <profil> <main|coursera>` Firefox fermé. Les terminaux foot déjà ouverts gardent l'ancienne palette jusqu'à leur fermeture.
 - Limite : pas de flou derrière les fenêtres (Sway standard, pas SwayFX) ; le voyant de l'horloge et celui de la carte sont fixes (une pulsation coûterait un redessin permanent).
 - Licence MIT ajoutée au dépôt.
+
+### 2026-11-11 — qutebrowser « SOC Matrix », barres agrandies
+- qutebrowser est le navigateur utilisé ; Firefox n'est pas redéployé (ses fichiers restent dans le dépôt, à la nouvelle palette).
+- Pages d'accueil réécrites (`startpages/page.css`, `page.js`, `yannel.html`, `coursera.html`) : graphe réseau du portfolio (20 images/s, à l'arrêt quand l'onglet est caché), fond du bureau (grille, halo, coins ambre), `~/nom▌`, `$ whoami` tapé à la machine, cartes façon fenêtre `*.json` avec leur raccourci, horloge locale + UTC. Anciennes animations radar / flux et images SVG retirées.
+- `config.py` : onglet actif vert sur fond `#1b3a33`, onglets épinglés en cyan, URL verte en HTTPS et ambre en HTTP, survol cyan, complétion et menus sur le même fond de sélection, coins arrondis. Vérifié : chargement sans erreur dans une instance temporaire.
+- waybar : barre du haut 36 → 42 px (texte 13 → 15 px), barre du bas 26 → 32 px (texte 12 → 13,5 px).
+

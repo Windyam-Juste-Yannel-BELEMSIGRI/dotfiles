@@ -1,19 +1,24 @@
-<!doctype html><html lang="fr"><meta charset="utf-8"><meta name="color-scheme" content="dark"><title>soc@glass</title>
-<style>
-:root{color-scheme:dark}
-#bg{position:fixed;inset:0;z-index:-1;pointer-events:none}
-body::before{content:"";position:fixed;inset:0;z-index:-2;background:repeating-linear-gradient(0deg,rgba(58,58,64,.5) 0 1px,transparent 1px 48px),repeating-linear-gradient(90deg,rgba(58,58,64,.5) 0 1px,transparent 1px 48px)}
-@media (prefers-reduced-motion:reduce){#bg{display:none}}
-html,body{margin:0;height:100%}
-body{background:#0b0f14 radial-gradient(ellipse at 50% 45%,#26302f 0,#0b0f14 75%) fixed;color:#c5d1de;font:15px "JetBrainsMono Nerd Font",monospace;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:28px}
-h1{margin:0;font-weight:400;font-size:26px;color:#00ff9c} h1 span{color:#7d8898;font-size:14px;display:block;margin-top:6px}
-form{width:min(560px,86vw)} input{width:100%;box-sizing:border-box;padding:12px 16px;background:#0b0f14cc;border:1px solid #1e2632;border-radius:6px;color:#c5d1de;font:inherit;outline:none}
-input:focus{border-color:#00ff9c}
-.g{display:flex;flex-wrap:wrap;gap:14px;justify-content:center;max-width:1100px;padding:0 16px}
-section{background:#121821b8;backdrop-filter:blur(10px);border:1px solid #1e2632;border-top:2px solid var(--c);border-radius:8px;padding:12px 16px;min-width:170px}
-h2{margin:0 0 8px;font-size:13px;color:var(--c);text-transform:uppercase;letter-spacing:.08em;display:flex;justify-content:space-between;gap:16px} h2 small{color:#7d8898;text-transform:none;letter-spacing:0}
-a{display:block;color:#c5d1de;text-decoration:none;padding:3px 0} a:hover{color:#00ff9c}
-</style>
-<canvas id="bg"></canvas><h1>soc@glass<span>$ whoami → analyste SOC · data engineer ▌</span></h1>
-<form action="https://duckduckgo.com/"><input name="q" placeholder="❯ rechercher…"></form>
-<div class="g"><section style="--c:#ff5370"><h2>Cyber<small>,c</small></h2><a href="https://tryhackme.com/dashboard">TryHackMe</a><a href="https://overthewire.org/wargames/">OverTheWire</a><a href="https://app.hackthebox.com/home">HackTheBox</a><a href="https://academy.hackthebox.com/">HTB Academy</a></section><section style="--c:#4fc3f7"><h2>Dev<small>,d</small></h2><a href="https://github.com/Windyam-Juste-Yannel-BELEMSIGRI">GitHub</a></section><section style="--c:#00ff9c"><h2>Réseaux<small>,r</small></h2><a href="https://www.netacad.com/">Cisco NetAcad</a></section><section style="--c:#ffb000"><h2>Échecs<small>,e</small></h2><a href="https://www.chess.com/home">Chess.com</a><a href="https://lichess.org/">Lichess</a></section><section style="--c:#b388ff"><h2>SOC<small>,s</small></h2><a href="https://attack.mitre.org/">ATT&CK</a><a href="https://www.virustotal.com/">VirusTotal</a><a href="https://www.abuseipdb.com/">AbuseIPDB</a><a href="https://www.shodan.io/">Shodan</a><a href="https://gchq.github.io/CyberChef/">CyberChef</a><a href="https://urlscan.io/">urlscan</a><a href="https://any.run/">ANY.RUN</a><a href="https://nvd.nist.gov/vuln/search">NVD</a><a href="https://www.exploit-db.com/">Exploit-DB</a></section><section style="--c:#00ff9c"><h2>Data Eng<small>,n</small></h2><a href="https://www.postgresql.org/docs/current/">Postgres</a><a href="https://duckdb.org/docs/">DuckDB</a><a href="https://docs.getdbt.com/">dbt</a><a href="https://airflow.apache.org/docs/">Airflow</a><a href="https://spark.apache.org/docs/latest/">Spark</a><a href="https://kafka.apache.org/documentation/">Kafka</a><a href="https://docs.python.org/3/">Python</a></section></div><script src="anim-soc.js"></script></html>
+<!doctype html>
+<html lang="fr">
+<meta charset="utf-8">
+<meta name="color-scheme" content="dark">
+<title>~/windyam yannel</title>
+<link rel="stylesheet" href="page.css">
+<canvas id="net" aria-hidden="true"></canvas>
+<i class="corner tl"></i><i class="corner tr"></i><i class="corner bl"></i><i class="corner br"></i>
+<header class="hero reveal">
+  <h1 class="logo"><span class="accent">~/</span>windyam yannel<span class="cursor"></span></h1>
+  <p><span class="accent">$</span> whoami &nbsp;<span class="dim">&gt;</span> <span id="typed" data-words="futur SOC analyst | data engineer en devenir | logs → pipelines → détections | blue team · linux · réseaux"></span></p>
+</header>
+<form class="reveal" style="--d:120ms" action="https://duckduckgo.com/"><span>❯</span><input name="q" placeholder="rechercher…" autocomplete="off"></form>
+<div class="grid">
+  <section class="card reveal" style="--c:#ff5370;--d:240ms"><div class="head"><span class="dots"><i></i><i></i><i></i></span><b>cyber.json</b><kbd>,c</kbd></div><div class="body"><a href="https://tryhackme.com/dashboard">TryHackMe</a><a href="https://overthewire.org/wargames/">OverTheWire</a><a href="https://app.hackthebox.com/home">HackTheBox</a><a href="https://academy.hackthebox.com/">HTB Academy</a></div></section>
+  <section class="card reveal" style="--c:#b388ff;--d:300ms"><div class="head"><span class="dots"><i></i><i></i><i></i></span><b>soc.json</b><kbd>,s</kbd></div><div class="body"><a href="https://attack.mitre.org/">ATT&amp;CK</a><a href="https://www.virustotal.com/">VirusTotal</a><a href="https://www.abuseipdb.com/">AbuseIPDB</a><a href="https://www.shodan.io/">Shodan</a><a href="https://gchq.github.io/CyberChef/">CyberChef</a><a href="https://urlscan.io/">urlscan</a><a href="https://any.run/">ANY.RUN</a><a href="https://nvd.nist.gov/vuln/search">NVD</a><a href="https://www.exploit-db.com/">Exploit-DB</a></div></section>
+  <section class="card reveal" style="--c:#00ff9c;--d:360ms"><div class="head"><span class="dots"><i></i><i></i><i></i></span><b>data-eng.json</b><kbd>,n</kbd></div><div class="body"><a href="https://www.postgresql.org/docs/current/">Postgres</a><a href="https://duckdb.org/docs/">DuckDB</a><a href="https://docs.getdbt.com/">dbt</a><a href="https://airflow.apache.org/docs/">Airflow</a><a href="https://spark.apache.org/docs/latest/">Spark</a><a href="https://kafka.apache.org/documentation/">Kafka</a><a href="https://docs.python.org/3/">Python</a></div></section>
+  <section class="card reveal" style="--c:#4fc3f7;--d:420ms"><div class="head"><span class="dots"><i></i><i></i><i></i></span><b>dev.json</b><kbd>,d</kbd></div><div class="body"><a href="https://github.com/Windyam-Juste-Yannel-BELEMSIGRI">GitHub</a></div></section>
+  <section class="card reveal" style="--c:#00e5ff;--d:480ms"><div class="head"><span class="dots"><i></i><i></i><i></i></span><b>reseaux.json</b><kbd>,r</kbd></div><div class="body"><a href="https://www.netacad.com/">Cisco NetAcad</a></div></section>
+  <section class="card reveal" style="--c:#ffb000;--d:540ms"><div class="head"><span class="dots"><i></i><i></i><i></i></span><b>echecs.json</b><kbd>,e</kbd></div><div class="body"><a href="https://www.chess.com/home">Chess.com</a><a href="https://lichess.org/">Lichess</a></div></section>
+</div>
+<footer class="reveal" style="--d:700ms"><span class="pulse"></span><span class="accent">SOC // ONLINE</span> &nbsp; data-pipeline: nominal &nbsp;·&nbsp; <span id="clock"></span></footer>
+<script src="page.js"></script>
+</html>

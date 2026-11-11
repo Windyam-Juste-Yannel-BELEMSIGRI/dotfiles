@@ -5,53 +5,75 @@ config.load_autoconfig(False)
 PROFILE = 'coursera' if 'coursera' in str(config.configdir) else 'yannel'
 HERE = os.path.expanduser('~/dotfiles/qutebrowser/startpages')
 
-# ── Palette (identique à foot / waybar / sway) ──
+# ── Palette « SOC Matrix » (identique à foot / waybar / sway et au portfolio) ──
 bg, surface, overlay = '#0b0f14', '#121821', '#1e2632'
-fg, muted, accent    = '#c5d1de', '#7d8898', '#00ff9c'
+fg, muted, dim       = '#c5d1de', '#7d8898', '#5c6b7a'
+accent, cyan, select = '#00ff9c', '#00e5ff', '#1b3a33'      # sain / réseau / fond de sélection
 red, green, yellow, blue, purple = '#ff5370', '#00ff9c', '#ffb000', '#4fc3f7', '#b388ff'
 
 # ── Polices ──
 c.fonts.default_family = 'JetBrainsMono Nerd Font'
 c.fonts.default_size = '11pt'
 c.fonts.web.family.fixed = 'JetBrainsMono Nerd Font'
+c.fonts.tabs.selected = 'bold default_size default_family'
+c.fonts.hints = 'bold 10pt default_family'
 
 # ── Couleurs ──
+# Barre d'état : même logique que la barre du bureau (vert = sain, cyan = réseau, ambre = attention, rouge = critique)
 c.colors.statusbar.normal.bg = bg;      c.colors.statusbar.normal.fg = fg
-c.colors.statusbar.insert.bg = green;   c.colors.statusbar.insert.fg = bg
+c.colors.statusbar.insert.bg = accent;  c.colors.statusbar.insert.fg = bg
 c.colors.statusbar.command.bg = surface; c.colors.statusbar.command.fg = fg
+c.colors.statusbar.caret.bg = cyan;     c.colors.statusbar.caret.fg = bg
+c.colors.statusbar.caret.selection.bg = cyan; c.colors.statusbar.caret.selection.fg = bg
 c.colors.statusbar.passthrough.bg = purple; c.colors.statusbar.passthrough.fg = bg
 c.colors.statusbar.private.bg = overlay; c.colors.statusbar.private.fg = fg
-c.colors.statusbar.url.fg = muted;      c.colors.statusbar.url.success.https.fg = accent
-c.colors.statusbar.url.hover.fg = accent; c.colors.statusbar.url.warn.fg = yellow
+c.colors.statusbar.command.private.bg = overlay; c.colors.statusbar.command.private.fg = fg
+c.colors.statusbar.url.fg = muted;      c.colors.statusbar.url.success.http.fg = yellow
+c.colors.statusbar.url.success.https.fg = accent
+c.colors.statusbar.url.hover.fg = cyan; c.colors.statusbar.url.warn.fg = yellow
 c.colors.statusbar.url.error.fg = red
 c.colors.statusbar.progress.bg = accent
+# Onglets : fond du bureau, onglet actif en vert sur fond de sélection (comme l'espace actif de la barre)
 c.colors.tabs.bar.bg = bg
-c.colors.tabs.even.bg = surface;  c.colors.tabs.even.fg = muted
-c.colors.tabs.odd.bg = surface;   c.colors.tabs.odd.fg = muted
-c.colors.tabs.selected.even.bg = overlay; c.colors.tabs.selected.even.fg = accent
-c.colors.tabs.selected.odd.bg = overlay;  c.colors.tabs.selected.odd.fg = accent
-c.colors.tabs.indicator.start = blue; c.colors.tabs.indicator.stop = accent
+c.colors.tabs.even.bg = bg;  c.colors.tabs.even.fg = muted
+c.colors.tabs.odd.bg = bg;   c.colors.tabs.odd.fg = muted
+c.colors.tabs.selected.even.bg = select; c.colors.tabs.selected.even.fg = accent
+c.colors.tabs.selected.odd.bg = select;  c.colors.tabs.selected.odd.fg = accent
+c.colors.tabs.pinned.even.bg = bg; c.colors.tabs.pinned.odd.bg = bg
+c.colors.tabs.pinned.even.fg = cyan; c.colors.tabs.pinned.odd.fg = cyan
+c.colors.tabs.pinned.selected.even.bg = select; c.colors.tabs.pinned.selected.odd.bg = select
+c.colors.tabs.pinned.selected.even.fg = accent; c.colors.tabs.pinned.selected.odd.fg = accent
+c.colors.tabs.indicator.start = cyan; c.colors.tabs.indicator.stop = accent
 c.colors.tabs.indicator.error = red
-c.colors.completion.fg = fg
-c.colors.completion.even.bg = bg; c.colors.completion.odd.bg = surface
-c.colors.completion.category.bg = bg; c.colors.completion.category.fg = accent
-c.colors.completion.category.border.top = bg; c.colors.completion.category.border.bottom = bg
-c.colors.completion.item.selected.bg = overlay; c.colors.completion.item.selected.fg = accent
-c.colors.completion.item.selected.border.top = overlay; c.colors.completion.item.selected.border.bottom = overlay
-c.colors.completion.match.fg = yellow
+c.colors.tabs.indicator.system = 'none'
+c.colors.completion.fg = [fg, muted, dim]
+c.colors.completion.even.bg = bg; c.colors.completion.odd.bg = bg
+c.colors.completion.category.bg = surface; c.colors.completion.category.fg = cyan
+c.colors.completion.category.border.top = overlay; c.colors.completion.category.border.bottom = overlay
+c.colors.completion.item.selected.bg = select; c.colors.completion.item.selected.fg = accent
+c.colors.completion.item.selected.border.top = select; c.colors.completion.item.selected.border.bottom = select
+c.colors.completion.item.selected.match.fg = cyan
+c.colors.completion.match.fg = accent
 c.colors.completion.scrollbar.bg = bg; c.colors.completion.scrollbar.fg = overlay
 c.colors.hints.bg = accent; c.colors.hints.fg = bg; c.colors.hints.match.fg = red
 c.hints.border = '1px solid ' + bg
+c.hints.radius = 4
 c.colors.messages.info.bg = surface;  c.colors.messages.info.fg = fg; c.colors.messages.info.border = overlay
 c.colors.messages.warning.bg = yellow; c.colors.messages.warning.fg = bg; c.colors.messages.warning.border = yellow
 c.colors.messages.error.bg = red; c.colors.messages.error.fg = bg; c.colors.messages.error.border = red
-c.colors.downloads.bar.bg = bg; c.colors.downloads.start.bg = blue; c.colors.downloads.stop.bg = accent
-c.colors.downloads.error.bg = red
-c.colors.keyhint.bg = surface; c.colors.keyhint.fg = fg; c.colors.keyhint.suffix.fg = accent
+c.colors.downloads.bar.bg = bg; c.colors.downloads.start.bg = cyan; c.colors.downloads.stop.bg = accent
+c.colors.downloads.start.fg = bg; c.colors.downloads.stop.fg = bg
+c.colors.downloads.error.bg = red; c.colors.downloads.error.fg = bg
+c.colors.downloads.system.bg = 'none'
+c.colors.keyhint.bg = 'rgba(18, 24, 33, 92%)'; c.colors.keyhint.fg = fg; c.colors.keyhint.suffix.fg = accent
+c.keyhint.radius = 8
 c.colors.prompts.bg = surface; c.colors.prompts.fg = fg; c.colors.prompts.border = '1px solid ' + overlay
-c.colors.prompts.selected.bg = overlay
+c.colors.prompts.selected.bg = select; c.colors.prompts.selected.fg = accent
+c.prompt.radius = 10
 c.colors.contextmenu.menu.bg = surface; c.colors.contextmenu.menu.fg = fg
-c.colors.contextmenu.selected.bg = overlay; c.colors.contextmenu.selected.fg = accent
+c.colors.contextmenu.selected.bg = select; c.colors.contextmenu.selected.fg = accent
+c.colors.contextmenu.disabled.bg = surface; c.colors.contextmenu.disabled.fg = dim
+c.colors.tooltip.bg = surface; c.colors.tooltip.fg = fg
 
 # ── Pages web en sombre ──
 c.colors.webpage.preferred_color_scheme = 'dark'
@@ -61,16 +83,19 @@ c.colors.webpage.bg = bg
 
 # ── Interface ──
 c.window.hide_decoration = True
-c.window.title_format = '{perc}{current_title}{title_sep}qutebrowser'
+c.window.title_format = '{perc}{current_title}'            # la barre du bureau affiche déjà « > qutebrowser »
 c.tabs.position = 'top'
 c.tabs.show = 'always'
-c.tabs.padding = {'top': 5, 'bottom': 5, 'left': 8, 'right': 8}
+c.tabs.padding = {'top': 6, 'bottom': 6, 'left': 10, 'right': 10}
 c.tabs.title.format = '{audio}{index}: {current_title}'
 c.tabs.title.format_pinned = '󰐃 {index}'
 c.tabs.favicons.show = 'always'
-c.tabs.width = '14%' if False else 220
+c.tabs.width = 220
+c.tabs.indicator.width = 2                  # liseré cyan → vert selon le chargement
+c.tabs.indicator.padding = {'top': 2, 'bottom': 2, 'left': 0, 'right': 6}
 c.tabs.max_width = 240
-c.statusbar.padding = {'top': 4, 'bottom': 4, 'left': 6, 'right': 6}
+c.statusbar.padding = {'top': 5, 'bottom': 5, 'left': 8, 'right': 8}
+c.statusbar.widgets = ['keypress', 'search_match', 'url', 'scroll', 'history', 'tabs', 'progress']
 c.completion.shrink = True
 c.completion.open_categories = ['quickmarks', 'searchengines', 'history']
 c.scrolling.smooth = False

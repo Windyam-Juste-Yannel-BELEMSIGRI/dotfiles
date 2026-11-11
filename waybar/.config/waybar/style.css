@@ -22,7 +22,7 @@
 
 * {
   font-family: "JetBrainsMono Nerd Font", monospace;
-  font-size: 13px;
+  font-size: 15px;
   min-height: 0;
   border: none;
   border-radius: 0;
@@ -49,7 +49,7 @@ window#waybar.telemetry {
   border-color: alpha(@accent, 0.14);
   border-radius: 8px;
 }
-window#waybar.telemetry * { font-size: 12px; }
+window#waybar.telemetry * { font-size: 13.5px; }
 
 tooltip {
   background: alpha(@bg, 0.96);
@@ -63,8 +63,8 @@ tooltip label { color: @fg; }
 .modules-center > widget > *,
 .modules-right > widget > * {
   background: transparent;
-  padding: 0 11px;
-  margin: 8px 0;
+  padding: 0 12px;
+  margin: 9px 0;
   color: @fg;
   transition: color 180ms ease, background-color 180ms ease;
 }
@@ -78,8 +78,8 @@ tooltip label { color: @fg; }
 
 window#waybar.telemetry .modules-left > widget > *,
 window#waybar.telemetry .modules-right > widget > * {
-  margin: 5px 0;
-  padding: 0 10px;
+  margin: 6px 0;
+  padding: 0 11px;
   color: @muted;
   border-left: 1px solid @border;
 }
@@ -92,17 +92,17 @@ window#waybar.telemetry .modules-right > widget:first-child > * { border-left: n
 #custom-host { color: @fg; font-weight: bold; }
 
 /* ── Espaces de travail : numéros, l'actif en pavé vert ── */
-#workspaces { padding: 0 6px 0 0; margin: 7px 0; }
+#workspaces { padding: 0 6px 0 0; margin: 8px 0; }
 #workspaces button {
-  min-width: 20px;
-  padding: 0 4px;
+  min-width: 24px;
+  padding: 0 5px;
   margin: 0 2px;
   color: @dim;
   background: transparent;
   border-radius: 5px;
   transition: color 180ms ease, background-color 180ms ease, box-shadow 180ms ease;
 }
-#workspaces button label { font-size: 12px; }
+#workspaces button label { font-size: 14px; }
 #workspaces button:hover { color: @fg; background: alpha(white, 0.06); box-shadow: none; }
 #workspaces button.visible { color: @cyan; box-shadow: inset 0 0 0 1px alpha(@cyan, 0.45); }
 #workspaces button.focused,
@@ -115,7 +115,7 @@ window#waybar.telemetry .modules-right > widget:first-child > * { border-left: n
 #workspaces button.focused label { font-weight: bold; }
 #workspaces button.urgent { color: @bg; background: @red; }
 
-#mode { color: @bg; background: @amber; font-weight: bold; border-radius: 5px; margin: 7px 4px; }
+#mode { color: @bg; background: @amber; font-weight: bold; border-radius: 5px; margin: 8px 4px; }
 #scratchpad { color: @purple; }
 #window { border-left: 1px solid @border; }
 #window:hover { color: @fg; }
@@ -178,7 +178,7 @@ window#waybar.empty #window { border-color: transparent; }
 #systemd-failed-units.ok { color: @accent; }
 
 /* ── Largeurs fixes : la barre ne « danse » pas quand les valeurs changent ── */
-#custom-gpu  { min-width: 60px; }
-#custom-fans { min-width: 70px; }
-#custom-conns { min-width: 55px; }
-#custom-ssh-fails { min-width: 45px; }
+#custom-gpu  { min-width: 68px; }
+#custom-fans { min-width: 80px; }
+#custom-conns { min-width: 62px; }
+#custom-ssh-fails { min-width: 52px; }

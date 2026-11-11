@@ -1,19 +1,20 @@
-<!doctype html><html lang="fr"><meta charset="utf-8"><meta name="color-scheme" content="dark"><title>learn@glass</title>
-<style>
-:root{color-scheme:dark}
-#bg{position:fixed;inset:0;z-index:-1;pointer-events:none}
-body::before{content:"";position:fixed;inset:0;z-index:-2;background:repeating-linear-gradient(0deg,rgba(58,58,64,.5) 0 1px,transparent 1px 48px),repeating-linear-gradient(90deg,rgba(58,58,64,.5) 0 1px,transparent 1px 48px)}
-@media (prefers-reduced-motion:reduce){#bg{display:none}}
-html,body{margin:0;height:100%}
-body{background:#0b0f14 radial-gradient(ellipse at 50% 45%,#26302f 0,#0b0f14 75%) fixed;color:#c5d1de;font:15px "JetBrainsMono Nerd Font",monospace;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:28px}
-h1{margin:0;font-weight:400;font-size:26px;color:#00ff9c} h1 span{color:#7d8898;font-size:14px;display:block;margin-top:6px}
-form{width:min(560px,86vw)} input{width:100%;box-sizing:border-box;padding:12px 16px;background:#0b0f14cc;border:1px solid #1e2632;border-radius:6px;color:#c5d1de;font:inherit;outline:none}
-input:focus{border-color:#00ff9c}
-.g{display:flex;flex-wrap:wrap;gap:14px;justify-content:center;max-width:1100px;padding:0 16px}
-section{background:#121821b8;backdrop-filter:blur(10px);border:1px solid #1e2632;border-top:2px solid var(--c);border-radius:8px;padding:12px 16px;min-width:170px}
-h2{margin:0 0 8px;font-size:13px;color:var(--c);text-transform:uppercase;letter-spacing:.08em;display:flex;justify-content:space-between;gap:16px} h2 small{color:#7d8898;text-transform:none;letter-spacing:0}
-a{display:block;color:#c5d1de;text-decoration:none;padding:3px 0} a:hover{color:#00ff9c}
-</style>
-<canvas id="bg"></canvas><h1>learn@glass<span>$ learn --track data-engineering ▌</span></h1>
-<form action="https://duckduckgo.com/"><input name="q" placeholder="❯ rechercher…"></form>
-<div class="g"><section style="--c:#00ff9c"><h2>Coursera<small>,k</small></h2><a href="https://www.coursera.org/">Accueil</a><a href="https://www.coursera.org/my-learning">Mes cours</a><a href="https://www.coursera.org/accomplishments">Certificats</a></section><section style="--c:#4fc3f7"><h2>Outils d'étude<small></small></h2><a href="https://github.com/Windyam-Juste-Yannel-BELEMSIGRI">GitHub</a><a href="https://docs.python.org/3/">Python docs</a><a href="https://www.postgresql.org/docs/current/">Postgres docs</a></section></div><script src="anim-data.js"></script></html>
+<!doctype html>
+<html lang="fr">
+<meta charset="utf-8">
+<meta name="color-scheme" content="dark">
+<title>~/learn</title>
+<link rel="stylesheet" href="page.css">
+<canvas id="net" aria-hidden="true"></canvas>
+<i class="corner tl"></i><i class="corner tr"></i><i class="corner bl"></i><i class="corner br"></i>
+<header class="hero reveal">
+  <h1 class="logo"><span class="accent">~/</span>learn<span class="cursor"></span></h1>
+  <p><span class="accent">$</span> whoami &nbsp;<span class="dim">&gt;</span> <span id="typed" data-words="learn --track data-engineering | un module par jour | notes → pratique → projet"></span></p>
+</header>
+<form class="reveal" style="--d:120ms" action="https://duckduckgo.com/"><span>❯</span><input name="q" placeholder="rechercher…" autocomplete="off"></form>
+<div class="grid">
+  <section class="card reveal" style="--c:#00ff9c;--d:240ms"><div class="head"><span class="dots"><i></i><i></i><i></i></span><b>coursera.json</b><kbd>,k</kbd></div><div class="body"><a href="https://www.coursera.org/">Accueil</a><a href="https://www.coursera.org/my-learning">Mes cours</a><a href="https://www.coursera.org/accomplishments">Certificats</a></div></section>
+  <section class="card reveal" style="--c:#4fc3f7;--d:300ms"><div class="head"><span class="dots"><i></i><i></i><i></i></span><b>outils.json</b></div><div class="body"><a href="https://github.com/Windyam-Juste-Yannel-BELEMSIGRI">GitHub</a><a href="https://docs.python.org/3/">Python docs</a><a href="https://www.postgresql.org/docs/current/">Postgres docs</a></div></section>
+</div>
+<footer class="reveal" style="--d:700ms"><span class="pulse"></span><span class="accent">SOC // ONLINE</span> &nbsp; profil étude &nbsp;·&nbsp; <span id="clock"></span></footer>
+<script src="page.js"></script>
+</html>
