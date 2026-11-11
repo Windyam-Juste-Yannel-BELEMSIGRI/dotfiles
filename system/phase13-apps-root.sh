@@ -67,7 +67,7 @@ log "✔ $USR ajouté à vboxusers (USB dans les VM, effet à la prochaine conne
 install -d /etc/chromium/policies/managed
 cat > /etc/chromium/policies/managed/glass-soc.json <<'EOF'
 {
-  "BrowserThemeColor": "#1c1c1e",
+  "BrowserThemeColor": "#0b0f14",
   "MetricsReportingEnabled": false,
   "DefaultBrowserSettingEnabled": false
 }

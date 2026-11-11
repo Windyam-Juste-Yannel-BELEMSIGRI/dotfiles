@@ -1,158 +1,183 @@
 /* ╭──────────────────────────────────────────────────────────────────╮
-   │ waybar "glass // SOC" — verre sombre + accent sarcelle            │
-   │ Hérité du thème d'origine : barre flottante, pastilles arrondies, │
-   │ bordure 1px translucide. Évolution : fond sombre, néon discret.   │
-   │ Palette : @define-color ci-dessous (miroir de sway/foot/fuzzel).   │
+   │ waybar "glass // SOC" — palette « SOC Matrix » du portfolio       │
+   │ Même dessin que la barre Zebar de windows-geek-theme : une seule  │
+   │ surface de verre éclairée par le haut, liseré vert, modules       │
+   │ séparés par un filet (plus de pastilles), logo ~/nom▌.            │
+   │ Aucune animation CSS : GTK redessinerait la barre à chaque image  │
+   │ de l'écran (240 Hz). Le curseur du logo clignote côté script.     │
    ╰──────────────────────────────────────────────────────────────────╯ */
 
-@define-color bg       #1c1c1e;
-@define-color surface  #2a2a2e;
-@define-color overlay  #3a3a40;
-@define-color fg       #e8e8ec;
-@define-color muted    #a8a8ae;
-@define-color accent   #7dd3c0;
-@define-color accent2  #8de3d0;
-@define-color red      #c07070;
-@define-color green    #8fb090;
-@define-color yellow   #d8a657;
-@define-color blue     #7a9dc0;
-@define-color purple   #b090c0;
+@define-color bg       #0b0f14;
+@define-color surface  #121821;
+@define-color border   #1e2632;
+@define-color fg       #c5d1de;
+@define-color muted    #7d8898;
+@define-color dim      #5c6b7a;
+@define-color accent   #00ff9c;   /* données / état sain */
+@define-color cyan     #00e5ff;   /* réseau */
+@define-color amber    #ffb000;   /* avertissement */
+@define-color red      #ff5370;   /* critique */
+@define-color purple   #b388ff;
+@define-color blue     #4fc3f7;
 
 * {
-  font-family: "JetBrainsMono Nerd Font", sans-serif;
+  font-family: "JetBrainsMono Nerd Font", monospace;
   font-size: 13px;
   min-height: 0;
   border: none;
   border-radius: 0;
 }
 
+/* ── Surface « verre » ── */
 window#waybar {
-  background: alpha(@bg, 0.78);
-  border: 1px solid alpha(@accent, 0.28);
-  border-radius: 14px;
+  /* trait de lumière verte au bas de la barre (le « scan » du portfolio, fixe) + verre translucide */
+  background-image:
+    linear-gradient(to right, transparent 8%, alpha(@accent, 0.55) 30%, alpha(@cyan, 0.35) 50%, transparent 78%),
+    linear-gradient(to bottom, alpha(@surface, 0.82), alpha(@bg, 0.90));
+  background-size: 100% 1px, 100% 100%;
+  background-position: left bottom, left top;
+  background-repeat: no-repeat;
+  background-color: transparent;
+  border: 1px solid alpha(@accent, 0.20);
+  border-radius: 10px;
+  box-shadow: inset 0 1px 0 alpha(white, 0.05);
   color: @fg;
 }
 window#waybar.telemetry {
-  background: alpha(@bg, 0.70);
-  border-radius: 10px;
-  font-size: 12px;
+  background-image: linear-gradient(to bottom, alpha(@surface, 0.74), alpha(@bg, 0.84));
+  background-size: 100% 100%;
+  border-color: alpha(@accent, 0.14);
+  border-radius: 8px;
 }
+window#waybar.telemetry * { font-size: 12px; }
 
 tooltip {
   background: alpha(@bg, 0.96);
-  border: 1px solid alpha(@accent, 0.45);
+  border: 1px solid alpha(@accent, 0.35);
   border-radius: 10px;
 }
-tooltip label { color: @fg; font-family: "JetBrainsMono Nerd Font"; }
+tooltip label { color: @fg; }
 
-/* ── Pastilles ── */
+/* ── Modules : texte nu, séparés par un filet vertical ── */
 .modules-left > widget > *,
 .modules-center > widget > *,
 .modules-right > widget > * {
-  background: alpha(@surface, 0.75);
-  border: 1px solid alpha(@fg, 0.06);
-  border-radius: 10px;
-  padding: 2px 10px;
-  margin: 4px 1px;
+  background: transparent;
+  padding: 0 11px;
+  margin: 8px 0;
   color: @fg;
-  /* fondu doux sur tout changement d'état (survol, alerte, activation) */
-  transition: color 180ms ease, background-color 180ms ease, border-color 180ms ease;
+  transition: color 180ms ease, background-color 180ms ease;
 }
-/* Survol : la pastille s'éclaire légèrement (retour visuel sur les modules cliquables) */
+.modules-right > widget > * { border-left: 1px solid @border; }
+.modules-right > widget:first-child > * { border-left: none; }
 .modules-left > widget > *:hover,
 .modules-center > widget > *:hover,
-.modules-right > widget > *:hover {
-  background: alpha(@overlay, 0.9);
-  border-color: alpha(@accent, 0.35);
-}
+.modules-right > widget > *:hover { color: @accent; }
+.modules-left  { margin-left: 6px; }
+.modules-right { margin-right: 4px; }
+
 window#waybar.telemetry .modules-left > widget > *,
 window#waybar.telemetry .modules-right > widget > * {
-  padding: 0 8px;
-  margin: 3px 1px;
-  border-radius: 7px;
+  margin: 5px 0;
+  padding: 0 10px;
   color: @muted;
+  border-left: 1px solid @border;
 }
-.modules-left  { margin-left: 6px; }
-.modules-right { margin-right: 6px; }
+window#waybar.telemetry .modules-left > widget:first-child > * { border-left: none; }
+window#waybar.telemetry .modules-right > widget:first-child > * { border-left: none; }
 
-/* Logo / host : accent plein */
-#custom-logo { color: @bg; background: @accent; padding: 2px 12px; }
-#custom-host { color: @accent; font-weight: bold; }
+/* ── Logo ~/nom▌ ── */
+#custom-logo { font-weight: bold; padding: 0 12px 0 8px; }
+#custom-logo:hover { color: @fg; }
+#custom-host { color: @fg; font-weight: bold; }
 
-/* ── Espaces de travail ── */
-#workspaces { padding: 0 4px; }
+/* ── Espaces de travail : numéros, l'actif en pavé vert ── */
+#workspaces { padding: 0 6px 0 0; margin: 7px 0; }
 #workspaces button {
-  padding: 0 6px;
-  color: @muted;
+  min-width: 20px;
+  padding: 0 4px;
+  margin: 0 2px;
+  color: @dim;
   background: transparent;
-  border-radius: 8px;
-  transition: all 180ms ease;
+  border-radius: 5px;
+  transition: color 180ms ease, background-color 180ms ease, box-shadow 180ms ease;
 }
+#workspaces button label { font-size: 12px; }
+#workspaces button:hover { color: @fg; background: alpha(white, 0.06); box-shadow: none; }
+#workspaces button.visible { color: @cyan; box-shadow: inset 0 0 0 1px alpha(@cyan, 0.45); }
 #workspaces button.focused,
 #workspaces button.active {
-  color: @accent;
-  background: alpha(@accent, 0.14);
-  box-shadow: inset 0 -2px @accent;      /* trait d'accent sous l'espace actif */
+  color: @bg;
+  background: @accent;
+  font-weight: bold;
+  box-shadow: 0 0 8px alpha(@accent, 0.35);
 }
-#workspaces button.urgent { color: @red; }
-#workspaces button:hover  { background: alpha(@fg, 0.08); box-shadow: none; }
+#workspaces button.focused label { font-weight: bold; }
+#workspaces button.urgent { color: @bg; background: @red; }
 
-#mode { color: @bg; background: @yellow; font-weight: bold; }
-#window { color: @muted; }
-window#waybar.empty #window { background: transparent; border-color: transparent; }
+#mode { color: @bg; background: @amber; font-weight: bold; border-radius: 5px; margin: 7px 4px; }
+#scratchpad { color: @purple; }
+#window { border-left: 1px solid @border; }
+#window:hover { color: @fg; }
+window#waybar.empty #window { border-color: transparent; }
 
 /* ── Horloges ── */
-#clock { color: @accent; font-weight: bold; }
-#clock.utc { color: @muted; }
+#clock { font-weight: bold; padding-right: 6px; }
+#clock.utc { color: @fg; font-weight: normal; padding-left: 6px; }
 
 /* ── Agenda (prochain événement) ── */
-#custom-agenda { color: @muted; }
+#custom-agenda { color: @muted; border-left: 1px solid @border; }
 #custom-agenda.today { color: @fg; }
-#custom-agenda.soon  { color: @yellow; border-color: alpha(@yellow, 0.45); }
-#custom-agenda.now   { color: @bg; background: @accent; font-weight: bold; }
-#custom-agenda.soc.soon, #custom-agenda.soc.now { color: @bg; background: @red; }
-#custom-agenda.free  { color: alpha(@muted, 0.75); }
+#custom-agenda.soon  { color: @amber; }
+#custom-agenda.now   { color: @bg; background: @accent; font-weight: bold; border-radius: 5px; border-left: none; }
+#custom-agenda.soc.soon, #custom-agenda.soc.now { color: @bg; background: @red; border-radius: 5px; border-left: none; }
+#custom-agenda.free  { color: @dim; }
+
+/* ── Icônes : cyan pour le réseau, vert pour les ressources ── */
+#network, #bluetooth.connected, #custom-ip-local, #custom-ip-public, #custom-conns { color: @fg; }
+#custom-cpu, #custom-mem { color: @fg; }
+#custom-net { color: @muted; }
+#custom-net.offline { color: @dim; }
+#wireplumber, #backlight { color: @fg; }
 
 /* ── États ── */
-#custom-rec.recording { color: @bg; background: @red; font-weight: bold; }
-#custom-rec.idle { background: transparent; border-color: transparent; padding: 0; margin: 0; }
+#custom-rec.recording { color: @bg; background: @red; font-weight: bold; border-radius: 5px; }
 #wireplumber.muted { color: @red; }
 #network.disconnected, #network.linked { color: @red; }
-#custom-vpn.on { color: @bg; background: @green; }
-#custom-vpn.off { color: @muted; }
-#bluetooth.connected { color: @blue; }
-#bluetooth.off, #bluetooth.disabled { color: @muted; }
+#custom-vpn.on { color: @accent; font-weight: bold; }
+#custom-vpn.off { color: @dim; }
+#bluetooth.connected { color: @cyan; }
+#bluetooth.off, #bluetooth.disabled { color: @dim; }
 #power-profiles-daemon.performance { color: @red; }
-#power-profiles-daemon.balanced    { color: @accent; }
-#power-profiles-daemon.power-saver { color: @green; }
-#battery.charging, #battery.plugged { color: @green; }
-#battery.warning:not(.charging) { color: @yellow; }
-#battery.critical:not(.charging) {
-  color: @bg; background: @red;
-  animation: blink 1s steps(2) infinite;
+#power-profiles-daemon.balanced    { color: @cyan; }
+#power-profiles-daemon.power-saver { color: @accent; }
+#battery.charging, #battery.plugged { color: @accent; }
+#battery.warning:not(.charging) { color: @amber; }
+#battery.critical:not(.charging) { color: @bg; background: @red; font-weight: bold; border-radius: 5px; }
+#idle_inhibitor { color: @dim; }
+#idle_inhibitor.activated { color: @amber; }
+#custom-dnd.off { color: @muted; }
+#custom-dnd.on { color: @amber; }
+#tray { padding: 0 9px; }
+#custom-power { color: @red; padding: 0 12px 0 11px; }
+#custom-power:hover { color: @bg; background: @red; border-radius: 5px; }
+
+/* ── Seuils (ambre > 80 %, rouge > 90 %, comme sous Windows) ── */
+#custom-cpu.warning, #custom-mem.warning, #custom-conns.warning, #custom-ssh-fails.warning { color: @amber; }
+#custom-cpu.critical, #custom-mem.critical { color: @red; font-weight: bold; }
+#temperature.critical, #custom-gpu.critical, #custom-ssh-fails.critical {
+  color: @bg; background: @red; font-weight: bold; border-radius: 4px;
 }
-@keyframes blink { to { background: alpha(@red, 0.4); } }
-#idle_inhibitor.activated { color: @yellow; }
-#custom-dnd.on { color: @yellow; }
-#custom-power { color: @red; padding: 2px 12px; }
-#custom-power:hover { background: alpha(@red, 0.22); }
-
-/* ── Télémétrie ── */
-#cpu.warning, #memory.warning, #custom-conns.warning, #custom-ssh-fails.warning { color: @yellow; }
-#cpu.critical, #memory.critical, #temperature.critical,
-#custom-gpu.critical, #custom-ssh-fails.critical { color: @bg; background: @red; }
-#custom-gpu.idle { color: @overlay; }
-#custom-gpu.active { color: @green; }
+#custom-gpu.idle { color: @dim; }
+#custom-gpu.active { color: @accent; }
 #custom-fans.performance { color: @red; }
-#custom-fans.quiet { color: @green; }
-#custom-ip-public.unmasked { color: @yellow; }
-#custom-ssh-fails.ok { color: @green; }
-#systemd-failed-units.degraded { color: @bg; background: @red; }
-#systemd-failed-units.ok { color: @green; }
+#custom-fans.quiet { color: @accent; }
+#custom-ip-public.unmasked { color: @amber; }
+#custom-ssh-fails.ok { color: @accent; }
+#systemd-failed-units.degraded { color: @bg; background: @red; font-weight: bold; border-radius: 4px; }
+#systemd-failed-units.ok { color: @accent; }
 
-/* ── Largeurs fixes : la barre ne « danse » plus quand les valeurs changent ──
-   (formats paddés dans config.jsonc + largeur mini pour les modules custom) */
-#custom-host { min-width: 150px; }
+/* ── Largeurs fixes : la barre ne « danse » pas quand les valeurs changent ── */
 #custom-gpu  { min-width: 60px; }
 #custom-fans { min-width: 70px; }
 #custom-conns { min-width: 55px; }

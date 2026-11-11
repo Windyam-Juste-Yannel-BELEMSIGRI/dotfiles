@@ -18,44 +18,44 @@ import agenda_core as A
 CSS = b"""
 * { font-family: "JetBrainsMono Nerd Font", monospace; font-size: 13px; outline: none; }
 window, window.background, decoration { background: transparent; box-shadow: none; }
-.root { background: #1c1c1e; border: 1px solid rgba(125,211,192,0.35); border-radius: 14px; padding: 18px; color: #e8e8ec; }
-.title { color: #7dd3c0; font-size: 17px; font-weight: bold; }
-.sub, .dim { color: #a8a8ae; }
+.root { background: #0b0f14; border: 1px solid rgba(0,255,156,0.35); border-radius: 14px; padding: 18px; color: #c5d1de; }
+.title { color: #00ff9c; font-size: 17px; font-weight: bold; }
+.sub, .dim { color: #7d8898; }
 .month { font-size: 15px; font-weight: bold; }
 .panel { background: rgba(42,42,46,0.72); border: 1px solid rgba(232,232,236,0.06); border-radius: 12px; padding: 12px; }
-button { background: transparent; color: #e8e8ec; border: 1px solid transparent; border-radius: 8px; box-shadow: none;
+button { background: transparent; color: #c5d1de; border: 1px solid transparent; border-radius: 8px; box-shadow: none;
          text-shadow: none; padding: 4px 9px; transition: all 140ms ease; background-image: none; }
 button:hover { background: rgba(232,232,236,0.08); }
 button.pill { background: rgba(58,58,64,0.8); border-color: rgba(232,232,236,0.06); }
-button.pill:hover { border-color: rgba(125,211,192,0.5); color: #7dd3c0; }
-button.primary { background: #7dd3c0; color: #1c1c1e; font-weight: bold; }
-button.primary:hover { background: #8de3d0; }
-button.danger:hover { background: rgba(192,112,112,0.25); color: #c07070; }
-.wd { color: #a8a8ae; font-size: 11px; padding-bottom: 4px; }
+button.pill:hover { border-color: rgba(0,255,156,0.5); color: #00ff9c; }
+button.primary { background: #00ff9c; color: #0b0f14; font-weight: bold; }
+button.primary:hover { background: #00e5ff; }
+button.danger:hover { background: rgba(255,83,112,0.25); color: #ff5370; }
+.wd { color: #7d8898; font-size: 11px; padding-bottom: 4px; }
 button.day { border-radius: 10px; padding: 5px 0 4px 0; min-width: 52px; min-height: 50px; }
-button.day.other { color: #5a5a62; }
-button.day.weekend { color: #a8a8ae; }
-button.day.today { border-color: rgba(125,211,192,0.75); color: #7dd3c0; font-weight: bold; }
-button.day.selected { background: rgba(125,211,192,0.16); border-color: #7dd3c0; }
+button.day.other { color: #5c6b7a; }
+button.day.weekend { color: #7d8898; }
+button.day.today { border-color: rgba(0,255,156,0.75); color: #00ff9c; font-weight: bold; }
+button.day.selected { background: rgba(0,255,156,0.16); border-color: #00ff9c; }
 .dots { font-size: 9px; }
 .daytitle { font-size: 15px; font-weight: bold; }
 row { background: transparent; border-radius: 10px; padding: 2px; transition: all 140ms ease; }
 row:hover { background: rgba(232,232,236,0.05); }
-row:selected { background: rgba(125,211,192,0.10); }
+row:selected { background: rgba(0,255,156,0.10); }
 list { background: transparent; }
 .bar { min-width: 3px; border-radius: 2px; }
 .time { font-weight: bold; }
-.done .evt { color: #6a6a72; text-decoration-line: line-through; }
-.live { color: #c07070; font-weight: bold; }
-entry, combobox button { background: rgba(28,28,30,0.85); color: #e8e8ec; border: 1px solid #3a3a40; border-radius: 8px;
-        padding: 6px 9px; box-shadow: none; caret-color: #7dd3c0; }
-entry:focus { border-color: #7dd3c0; }
-entry.bad { border-color: #c07070; }
-.hint { color: #a8a8ae; font-size: 11px; }
-.ok { color: #8fb090; } .err { color: #c07070; }
-menu, .popup, popover { background: #2a2a2e; color: #e8e8ec; border: 1px solid #3a3a40; border-radius: 8px; }
-menuitem:hover { background: rgba(125,211,192,0.15); }
-scrollbar { background: transparent; } scrollbar slider { background: #3a3a40; border-radius: 4px; min-width: 4px; }
+.done .evt { color: #5c6b7a; text-decoration-line: line-through; }
+.live { color: #ff5370; font-weight: bold; }
+entry, combobox button { background: rgba(11,15,20,0.85); color: #c5d1de; border: 1px solid #1e2632; border-radius: 8px;
+        padding: 6px 9px; box-shadow: none; caret-color: #00ff9c; }
+entry:focus { border-color: #00ff9c; }
+entry.bad { border-color: #ff5370; }
+.hint { color: #7d8898; font-size: 11px; }
+.ok { color: #00ff9c; } .err { color: #ff5370; }
+menu, .popup, popover { background: #121821; color: #c5d1de; border: 1px solid #1e2632; border-radius: 8px; }
+menuitem:hover { background: rgba(0,255,156,0.15); }
+scrollbar { background: transparent; } scrollbar slider { background: #1e2632; border-radius: 4px; min-width: 4px; }
 """
 
 
@@ -153,7 +153,7 @@ class Agenda(Gtk.Window):
             box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=1); box.pack_start(L(str(d.day), xalign=0.5), False, False, 0)
             cols = []
             for o in by.get(d, []):
-                c = '#5a5a62' if o[3] else A.TAGS.get(o[2].get('tag'), A.TAGS[A.DEFAULT_TAG])[0]
+                c = '#5c6b7a' if o[3] else A.TAGS.get(o[2].get('tag'), A.TAGS[A.DEFAULT_TAG])[0]
                 if len(cols) < 4: cols.append(f'<span foreground="{c}">●</span>')
             box.pack_start(L(''.join(cols) or ' ', 'dots', 0.5, True), False, False, 0)
             b = Gtk.Button(); b.add(box); b.set_can_focus(False); sc = b.get_style_context(); sc.add_class('day')
@@ -202,7 +202,7 @@ class Agenda(Gtk.Window):
         self.sel = d; self.refresh()
 
     def say(self, text, ok=True):
-        self.msg.set_markup(f'<span foreground="{"#8fb090" if ok else "#c07070"}">{GLib.markup_escape_text(text)}</span>')
+        self.msg.set_markup(f'<span foreground="{"#00ff9c" if ok else "#ff5370"}">{GLib.markup_escape_text(text)}</span>')
 
     # ── Actions
     def add_event(self):

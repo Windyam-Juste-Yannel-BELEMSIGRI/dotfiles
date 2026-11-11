@@ -14,8 +14,8 @@ o.mouse = "a"; o.laststatus = 3
 
 -- Palette (miroir de foot) appliquée au thème intégré "habamax"
 vim.cmd.colorscheme("habamax")
-local p = { bg = "#1c1c1e", surface = "#2a2a2e", overlay = "#3a3a40", fg = "#e8e8ec",
-            muted = "#a8a8ae", accent = "#7dd3c0", red = "#c07070", yellow = "#d8a657" }
+local p = { bg = "#0b0f14", surface = "#121821", overlay = "#1e2632", fg = "#c5d1de",
+            muted = "#7d8898", accent = "#00ff9c", red = "#ff5370", yellow = "#ffb000" }
 local hl = function(n, v) vim.api.nvim_set_hl(0, n, v) end
 hl("Normal", { fg = p.fg, bg = "NONE" })          -- transparence de foot conservée
 hl("NormalFloat", { fg = p.fg, bg = p.surface })
@@ -25,7 +25,7 @@ hl("LineNr", { fg = p.overlay })
 hl("ColorColumn", { bg = p.surface })
 hl("StatusLine", { fg = p.bg, bg = p.accent, bold = true })
 hl("StatusLineNC", { fg = p.muted, bg = p.surface })
-hl("Visual", { bg = "#2f4a45" })
+hl("Visual", { bg = "#1b3a33" })
 hl("Search", { fg = p.bg, bg = p.yellow })
 hl("WinSeparator", { fg = p.overlay })
 hl("DiagnosticError", { fg = p.red })

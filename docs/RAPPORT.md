@@ -6,8 +6,10 @@
 | Système | Debian GNU/Linux 13 (trixie) · noyau 6.12.115+deb13.1-amd64 · dual boot Windows 11 (GRUB) |
 | Utilisateur | `windyam_yannel` |
 | Date | 2026-11-08 |
-| Dépôt | `~/dotfiles` (git local, aucun push) |
+| Dépôt | `~/dotfiles` · https://github.com/Windyam-Juste-Yannel-BELEMSIGRI/dotfiles |
 
+> Depuis le 2026-11-11, la palette décrite ici (gris `#1c1c1e`, sarcelle `#7dd3c0`) est remplacée par « SOC Matrix » : voir le journal de [`RAPPORT-NAVIGATEURS-AGENDA.md`](RAPPORT-NAVIGATEURS-AGENDA.md).
+>
 > Suite : outils de travail, applications et batterie → [`RAPPORT-OUTILS.md`](RAPPORT-OUTILS.md)
 
 ---

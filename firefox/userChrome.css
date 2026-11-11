@@ -1,7 +1,7 @@
 /* glass // SOC — palette alignée sur foot / waybar / sway */
 :root{
-  --gs-bg:#1c1c1e; --gs-surface:#2a2a2e; --gs-overlay:#3a3a40;
-  --gs-fg:#e8e8ec; --gs-muted:#a8a8ae; --gs-accent:#7dd3c0;
+  --gs-bg:#0b0f14; --gs-surface:#121821; --gs-overlay:#1e2632;
+  --gs-fg:#c5d1de; --gs-muted:#7d8898; --gs-accent:#00ff9c;
   --toolbar-bgcolor:var(--gs-surface) !important;
   --toolbar-color:var(--gs-fg) !important;
   --lwt-accent-color:var(--gs-bg) !important;

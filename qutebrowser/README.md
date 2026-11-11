@@ -1,6 +1,6 @@
 # Navigateurs — « glass // SOC »
 
-Palette identique à foot / waybar / sway (`#1c1c1e` fond, `#7dd3c0` accent), police JetBrainsMono Nerd Font.
+Palette identique à foot / waybar / sway (`#0b0f14` fond, `#00ff9c` accent), police JetBrainsMono Nerd Font.
 
 ## qutebrowser (navigateur principal)
 - `./install.sh` : deux profils indépendants (`yannel`, `coursera`), lanceur `qb`, entrées fuzzel.

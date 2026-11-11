@@ -1,8 +1,8 @@
 @-moz-document url-prefix("about:"), url("about:newtab"), url("about:home"){
-  :root{--newtab-background-color:#1c1c1e !important;--newtab-background-color-secondary:#2a2a2e !important;
-        --newtab-text-primary-color:#e8e8ec !important;--newtab-primary-action-background:#7dd3c0 !important;
-        --in-content-page-background:#1c1c1e !important;--in-content-primary-button-background:#7dd3c0 !important;
-        --in-content-primary-button-text-color:#1c1c1e !important;}
+  :root{--newtab-background-color:#0b0f14 !important;--newtab-background-color-secondary:#121821 !important;
+        --newtab-text-primary-color:#c5d1de !important;--newtab-primary-action-background:#00ff9c !important;
+        --in-content-page-background:#0b0f14 !important;--in-content-primary-button-background:#00ff9c !important;
+        --in-content-primary-button-text-color:#0b0f14 !important;}
   body{font-family:"JetBrainsMono Nerd Font",monospace !important}
 }
-*{scrollbar-width:thin;scrollbar-color:#3a3a40 transparent}
+*{scrollbar-width:thin;scrollbar-color:#1e2632 transparent}

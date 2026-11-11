@@ -1,37 +1,37 @@
-/* GTK 3 « glass // SOC » : accent sarcelle et fonds de la palette par-dessus Adwaita-dark
+/* GTK 3 « glass // SOC » : accent vert « matrix » et fonds de la palette par-dessus Adwaita-dark
    (Thunar, pavucontrol, blueman, boîtes de dialogue…). */
-@define-color theme_bg_color #1c1c1e;
-@define-color theme_base_color #232326;
-@define-color theme_fg_color #e8e8ec;
-@define-color theme_text_color #e8e8ec;
-@define-color theme_selected_bg_color #7dd3c0;
-@define-color theme_selected_fg_color #1c1c1e;
-@define-color insensitive_fg_color #6a6a72;
-@define-color borders #3a3a40;
-@define-color theme_unfocused_bg_color #1c1c1e;
-@define-color theme_unfocused_base_color #232326;
-@define-color theme_unfocused_selected_bg_color #5fb3a2;
+@define-color theme_bg_color #0b0f14;
+@define-color theme_base_color #0e131a;
+@define-color theme_fg_color #c5d1de;
+@define-color theme_text_color #c5d1de;
+@define-color theme_selected_bg_color #00ff9c;
+@define-color theme_selected_fg_color #0b0f14;
+@define-color insensitive_fg_color #5c6b7a;
+@define-color borders #1e2632;
+@define-color theme_unfocused_bg_color #0b0f14;
+@define-color theme_unfocused_base_color #0e131a;
+@define-color theme_unfocused_selected_bg_color #00c97b;
 
-window, .background { background-color: #1c1c1e; color: #e8e8ec; }
+window, .background { background-color: #0b0f14; color: #c5d1de; }
 headerbar, .titlebar, toolbar, menubar, .sidebar, placessidebar, statusbar {
-  background: #2a2a2e; border-color: #3a3a40; box-shadow: none; color: #e8e8ec;
+  background: #121821; border-color: #1e2632; box-shadow: none; color: #c5d1de;
 }
-.view, textview text, iconview, treeview.view { background-color: #232326; color: #e8e8ec; }
+.view, textview text, iconview, treeview.view { background-color: #0e131a; color: #c5d1de; }
 .view:selected, treeview.view:selected, iconview:selected, row:selected, textview text selection, *:selected {
-  background-color: alpha(#7dd3c0, 0.28); color: #e8e8ec;
+  background-color: alpha(#00ff9c, 0.28); color: #c5d1de;
 }
 button { transition: all 140ms ease; border-radius: 7px; }
-button:hover { border-color: alpha(#7dd3c0, 0.55); }
-button.suggested-action { background: #7dd3c0; color: #1c1c1e; border-color: #7dd3c0; }
-button.destructive-action { background: #c07070; color: #1c1c1e; border-color: #c07070; }
-entry { border-radius: 7px; background: #1c1c1e; border-color: #3a3a40; }
-entry:focus { border-color: #7dd3c0; box-shadow: inset 0 0 0 1px alpha(#7dd3c0, 0.45); }
-check:checked, radio:checked, switch:checked { background: #7dd3c0; color: #1c1c1e; border-color: #7dd3c0; }
-progressbar progress, scale highlight, levelbar block.filled { background: #7dd3c0; border-color: #7dd3c0; }
-menu, popover, .context-menu { background: #2a2a2e; border: 1px solid #3a3a40; border-radius: 9px; }
-menuitem:hover, modelbutton:hover { background: alpha(#7dd3c0, 0.16); color: #e8e8ec; }
-tooltip { background: #1c1c1e; border: 1px solid alpha(#7dd3c0, 0.45); border-radius: 8px; }
-scrollbar slider { background: #3a3a40; border-radius: 6px; min-width: 5px; min-height: 5px; }
-scrollbar slider:hover { background: #7dd3c0; }
-notebook tab:checked { box-shadow: inset 0 -2px #7dd3c0; color: #7dd3c0; }
-link, *:link { color: #7dd3c0; }
+button:hover { border-color: alpha(#00ff9c, 0.55); }
+button.suggested-action { background: #00ff9c; color: #0b0f14; border-color: #00ff9c; }
+button.destructive-action { background: #ff5370; color: #0b0f14; border-color: #ff5370; }
+entry { border-radius: 7px; background: #0b0f14; border-color: #1e2632; }
+entry:focus { border-color: #00ff9c; box-shadow: inset 0 0 0 1px alpha(#00ff9c, 0.45); }
+check:checked, radio:checked, switch:checked { background: #00ff9c; color: #0b0f14; border-color: #00ff9c; }
+progressbar progress, scale highlight, levelbar block.filled { background: #00ff9c; border-color: #00ff9c; }
+menu, popover, .context-menu { background: #121821; border: 1px solid #1e2632; border-radius: 9px; }
+menuitem:hover, modelbutton:hover { background: alpha(#00ff9c, 0.16); color: #c5d1de; }
+tooltip { background: #0b0f14; border: 1px solid alpha(#00ff9c, 0.45); border-radius: 8px; }
+scrollbar slider { background: #1e2632; border-radius: 6px; min-width: 5px; min-height: 5px; }
+scrollbar slider:hover { background: #00ff9c; }
+notebook tab:checked { box-shadow: inset 0 -2px #00ff9c; color: #00ff9c; }
+link, *:link { color: #00ff9c; }

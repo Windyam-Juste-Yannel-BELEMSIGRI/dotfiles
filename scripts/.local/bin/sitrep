@@ -27,7 +27,7 @@ if (( ! SHORT )); then
   banner "SITREP // $(whoami)@$(hostname -s) // $(date '+%a %d %b %Y %H:%M') // UTC $(date -u +%H:%M)"
   if command -v fastfetch >/dev/null; then
     fastfetch --logo none --structure "OS:Kernel:Uptime:Packages:WM:CPU:GPU:Memory:Disk:Battery:LocalIp" \
-      --color-keys "38;2;125;211;192" 2>/dev/null | sed 's/^/  /'
+      --color-keys "38;2;0;255;156" 2>/dev/null | sed 's/^/  /'
   fi
   section "VIGILANCE"
 fi

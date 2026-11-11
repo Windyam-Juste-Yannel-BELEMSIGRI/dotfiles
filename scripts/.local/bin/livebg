@@ -7,30 +7,41 @@
 # │ GTK 3 + Cairo + libgtk-layer-shell (déjà requise par waybar).         │
 # │ Usage : livebg [daemon|toggle|on|off|status]                          │
 # │ Réglages : ~/.config/sway/livebg.conf                                 │
+# │ + carte « status.json » en bas à droite (hôte, uptime, CPU, RAM,      │
+# │ débit, texte tapé à la machine), comme sur le portfolio.              │
 # │ Économie : fréquence réduite sur batterie ; aucune image calculée     │
 # │ quand l'écran est éteint ou couvert par une fenêtre en plein écran.   │
 # ╰──────────────────────────────────────────────────────────────────────╯
-import configparser, ctypes, glob, math, os, random, signal, subprocess, sys, time
+import configparser, ctypes, glob, math, os, random, signal, socket, subprocess, sys, time
 
 CONF = os.path.expanduser('~/.config/sway/livebg.conf')
 RUN = os.environ.get('XDG_RUNTIME_DIR', '/tmp')
 OFFF = f'{RUN}/livebg.off'
 UNIT = 'livebg.service'
+FONT = 'JetBrainsMono Nerd Font'
+WORDS = 'futur SOC analyst | data engineer en devenir | logs → pipelines → détections | blue team · linux · réseaux'
+
+
+def rgb(h):
+    h = h.strip().lstrip('#'); return tuple(int(h[i:i + 2], 16) / 255 for i in (0, 2, 4))
 
 
 def cfg():
-    cp = configparser.ConfigParser(); cp.read(CONF)
+    cp = configparser.ConfigParser(interpolation=None); cp.read(CONF)
     g = cp['general'] if cp.has_section('general') else {}
     c = cp['colors'] if cp.has_section('colors') else {}
-    def rgb(h):
-        h = h.strip().lstrip('#'); return tuple(int(h[i:i + 2], 16) / 255 for i in (0, 2, 4))
+    k = cp['card'] if cp.has_section('card') else {}
     return dict(fps=float(g.get('fps', 24)), battery_fps=float(g.get('battery_fps', 12)),
+                net_fps=float(g.get('net_fps', 8)), battery_net_fps=float(g.get('battery_net_fps', 5)),
                 density=float(g.get('density', 30000)), max_nodes=int(g.get('max_nodes', 140)),
                 link=float(g.get('link_distance', 190)), speed=float(g.get('speed', 14)),
                 packets=int(g.get('max_packets', 16)), opacity=float(g.get('opacity', 0.55)),
                 width=float(g.get('line_width', 1.0)), radius=float(g.get('node_radius', 1.0)),
-                line=rgb(c.get('line', '#a8a8ae')), node=rgb(c.get('node', '#a8a8ae')),
-                packet=rgb(c.get('packet', '#7dd3c0')), hot=rgb(c.get('highlight', '#8de3d0')))
+                line=rgb(c.get('line', '#7d8898')), node=rgb(c.get('node', '#7d8898')),
+                packet=rgb(c.get('packet', '#00e5ff')), hot=rgb(c.get('highlight', '#00ff9c')),
+                card=str(k.get('enabled', 'yes')).strip().lower() in ('yes', 'true', '1', 'on'),
+                words=[w.strip() for w in k.get('words', WORDS).split('|') if w.strip()],
+                card_right=int(k.get('margin_right', 84)), card_bottom=int(k.get('margin_bottom', 96)))
 
 
 def on_battery():
@@ -41,94 +52,162 @@ def on_battery():
     return bool(glob.glob('/sys/class/power_supply/BAT*'))
 
 
+class Stats:
+    """Valeurs réelles de la carte status.json, lues dans /proc (aucun processus lancé)."""
+    def __init__(self):
+        self.cpu_prev = self.net_prev = None
+        self.host = socket.gethostname().split('.')[0]
+        self.cpu = self.mem = 0; self.net = '…'; self.uptime = '…'
+        self.read()
+
+    @staticmethod
+    def _rate(b):
+        return f'{b / 1e6:.1f}M' if b >= 1e6 else f'{b / 1e3:.0f}k' if b >= 1e3 else f'{b:.0f}B'
+
+    def read(self):
+        try:
+            v = [int(x) for x in open('/proc/stat').readline().split()[1:9]]
+            tot, idle = sum(v), v[3] + v[4]
+            if self.cpu_prev and tot > self.cpu_prev[0]:
+                self.cpu = round(100 * (1 - (idle - self.cpu_prev[1]) / (tot - self.cpu_prev[0])))
+            self.cpu_prev = (tot, idle)
+            mi = dict(l.split(':') for l in open('/proc/meminfo'))
+            total, avail = int(mi['MemTotal'].split()[0]), int(mi['MemAvailable'].split()[0])
+            self.mem = round(100 * (total - avail) / total)
+            m = int(float(open('/proc/uptime').read().split()[0]) // 60)
+            d, h = m // 1440, m % 1440 // 60
+            self.uptime = (f'{d}d ' if d else '') + (f'{h}h ' if h else '') + f'{m % 60}m'
+            dev = next((l.split()[0] for l in open('/proc/net/route') if l.split()[1:2] == ['00000000']), None)
+            now = time.monotonic()
+            if dev:
+                f = next(l for l in open('/proc/net/dev') if l.strip().startswith(dev + ':')).split(':')[1].split()
+                rx, tx = int(f[0]), int(f[8])
+                if self.net_prev and self.net_prev[0] == dev:
+                    dt = max(0.5, now - self.net_prev[3])
+                    self.net = f'↓ {self._rate((rx - self.net_prev[1]) / dt)}/s  ↑ {self._rate((tx - self.net_prev[2]) / dt)}/s'
+                self.net_prev = (dev, rx, tx, now)
+            else:
+                self.net, self.net_prev = 'offline', None
+        except (OSError, ValueError, KeyError, StopIteration): pass
+
+    @property
+    def level(self):
+        return 'crit' if self.cpu > 90 or self.mem > 90 else 'warn' if self.cpu > 80 or self.mem > 85 else ''
+
+
 def daemon():
     import gi
     gi.require_version('Gtk', '3.0'); gi.require_version('Gdk', '3.0')
-    from gi.repository import Gdk, GLib, Gtk
+    gi.require_version('Pango', '1.0'); gi.require_version('PangoCairo', '1.0')
+    from gi.repository import Gdk, GLib, Gtk, Pango, PangoCairo
+    import cairo
     try: ls = ctypes.CDLL('libgtk-layer-shell.so.0')
     except OSError: sys.exit('livebg : libgtk-layer-shell introuvable (paquet libgtk-layer-shell0)')
     ctypes.pythonapi.PyCapsule_GetPointer.restype = ctypes.c_void_p
     ctypes.pythonapi.PyCapsule_GetPointer.argtypes = [ctypes.py_object, ctypes.c_char_p]
     ptr = lambda o: ctypes.c_void_p(ctypes.pythonapi.PyCapsule_GetPointer(o.__gpointer__, None))
     for f in ('gtk_layer_init_for_window', 'gtk_layer_set_layer', 'gtk_layer_set_anchor', 'gtk_layer_set_exclusive_zone',
-              'gtk_layer_set_namespace', 'gtk_layer_set_monitor'): getattr(ls, f).restype = None
+              'gtk_layer_set_namespace', 'gtk_layer_set_monitor', 'gtk_layer_set_margin'): getattr(ls, f).restype = None
 
     C = cfg()
     state = dict(batt=on_battery(), mouse=(-999.0, -999.0))
+    stats = Stats()
+    LEFT, RIGHT, TOP, BOTTOM = range(4)
+
+    def layer(win, monitor, name):
+        """Surface transparente en couche 1 (« bottom ») : au-dessus du fond fixe de swaybg — que Sway relance
+        à chaque rechargement et qui recouvrirait une surface de couche 0 — et sous toutes les fenêtres."""
+        vis = win.get_screen().get_rgba_visual()
+        if vis: win.set_visual(vis)
+        win.set_app_paintable(True); win.set_decorated(False)
+        p = ptr(win)
+        ls.gtk_layer_init_for_window(p); ls.gtk_layer_set_namespace(p, name)
+        ls.gtk_layer_set_layer(p, 1); ls.gtk_layer_set_exclusive_zone(p, -1); ls.gtk_layer_set_monitor(p, ptr(monitor))
+        return p
 
     class Net(Gtk.Window):
         def __init__(self, monitor):
             super().__init__()
             g = monitor.get_geometry(); self.W, self.H = g.width, g.height
-            vis = self.get_screen().get_rgba_visual()
-            if vis: self.set_visual(vis)
-            self.set_app_paintable(True); self.set_decorated(False)
-            p = ptr(self)
-            ls.gtk_layer_init_for_window(p); ls.gtk_layer_set_namespace(p, b'livebg')
-            # couche 1 (« bottom ») : au-dessus du fond fixe de swaybg — que Sway relance à chaque
-            # rechargement et qui recouvrirait une surface de couche 0 — et sous toutes les fenêtres
-            ls.gtk_layer_set_layer(p, 1)
+            p = layer(self, monitor, b'livebg')
             for edge in range(4): ls.gtk_layer_set_anchor(p, edge, 1)      # plein écran
-            ls.gtk_layer_set_exclusive_zone(p, -1); ls.gtk_layer_set_monitor(p, ptr(monitor))
             n = int(min(C['max_nodes'], self.W * self.H / C['density']))
             self.nodes = [[random.random() * self.W, random.random() * self.H,
                            (random.random() - .5) * 2 * C['speed'], (random.random() - .5) * 2 * C['speed'],
                            random.random() * 1.6 + C['radius']] for _ in range(n)]
-            self.packets, self.last, self.acc = [], 0.0, 0.0
+            self.packets, self.last, self.dirty = [], 0.0, True
+            self.cache = cairo.ImageSurface(cairo.FORMAT_ARGB32, self.W, self.H)
             self.add_events(Gdk.EventMask.POINTER_MOTION_MASK | Gdk.EventMask.LEAVE_NOTIFY_MASK)
             self.connect('motion-notify-event', lambda _, e: state.__setitem__('mouse', (e.x, e.y)))
             self.connect('leave-notify-event', lambda *_: state.__setitem__('mouse', (-999.0, -999.0)))
             self.connect('draw', self.draw)
-            self.add_tick_callback(self.tick)       # ne tourne que lorsque Sway affiche réellement la surface
             self.show_all()
 
-        def tick(self, _w, clock):
-            t = clock.get_frame_time() / 1e6
-            dt = min(0.25, t - self.last) if self.last else 0.0
-            self.last = t; self.acc += dt
-            step = 1.0 / (C['battery_fps'] if state['batt'] else C['fps'])
-            if self.acc >= step:
-                self.step(self.acc); self.acc = 0.0; self.queue_draw()
-            return True
+        # Deux cadences. Le graphe (nœuds + liens) dérive lentement — au plus `speed` px/s — et coûte cher à
+        # tracer en plein écran : il est rendu dans un cache à `net_fps` images/s. Les paquets, eux, filent :
+        # ils sont dessinés à `fps` images/s par-dessus le cache, en ne redessinant que leurs petits rectangles.
+        def tick(self, now, net_due):
+            if net_due:
+                self.dirty = True; self.queue_draw()
+                return
+            for p in self.packets:                       # efface l'ancienne position, dessine la nouvelle
+                x, y = self.pos(p); self.queue_draw_area(int(x) - 10, int(y) - 10, 21, 21)
+                p[2] += (now - p[3]) * 0.7; p[3] = now
+                x, y = self.pos(p); self.queue_draw_area(int(x) - 10, int(y) - 10, 21, 21)
 
-        def step(self, dt):
+        @staticmethod
+        def pos(p):
+            a, b, t = p[0], p[1], min(1.0, p[2])
+            return a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t
+
+        def render(self):
+            """Avance les nœuds et retrace le graphe dans le cache."""
+            now = time.monotonic()
+            dt = min(0.5, now - self.last) if self.last else 0.0
+            self.last = now
             W, H = self.W, self.H
             for n in self.nodes:
                 n[0] += n[2] * dt; n[1] += n[3] * dt
                 if n[0] < 0 or n[0] > W: n[2] = -n[2]; n[0] = min(max(n[0], 0), W)
                 if n[1] < 0 or n[1] > H: n[3] = -n[3]; n[1] = min(max(n[1], 0), H)
-            for p in self.packets: p[2] += dt * 0.7
-            L2 = C['link'] ** 2
+            L, op = C['link'], C['opacity']
+            L2 = L * L
+            for p in self.packets: p[2] += (now - p[3]) * 0.7; p[3] = now
             self.packets = [p for p in self.packets if p[2] < 1 and (p[0][0] - p[1][0]) ** 2 + (p[0][1] - p[1][1]) ** 2 < L2]
-
-        def draw(self, _w, cr):
-            import cairo
+            cr = cairo.Context(self.cache)
             cr.set_operator(cairo.OPERATOR_SOURCE); cr.set_source_rgba(0, 0, 0, 0); cr.paint()
             cr.set_operator(cairo.OPERATOR_OVER)
-            nodes, L, op = self.nodes, C['link'], C['opacity']
-            L2 = L * L
-            buckets = [[] for _ in range(5)]            # liens regroupés par niveau d'opacité : 5 tracés au lieu de centaines
-            spawn = len(self.packets) < C['packets']
-            for i in range(len(nodes)):
-                a = nodes[i]; ax, ay = a[0], a[1]
-                for j in range(i + 1, len(nodes)):
-                    b = nodes[j]; dx = ax - b[0]
-                    if dx > L or dx < -L: continue
-                    dy = ay - b[1]; d2 = dx * dx + dy * dy
-                    if d2 < L2:
-                        k = 1 - math.sqrt(d2) / L
-                        buckets[min(4, int(k * 5))].append((ax, ay, b[0], b[1]))
-                        if spawn and random.random() < 0.0009: self.packets.append([a, b, 0.0]); spawn = len(self.packets) < C['packets']
+            # Grille spatiale de côté L : un nœud n'est comparé qu'à ceux de sa case et des cases voisines
+            # (≈ 10 fois moins de comparaisons que toutes les paires).
+            grid = {}
+            for n in self.nodes: grid.setdefault((int(n[0] // L), int(n[1] // L)), []).append(n)
+            buckets = [[] for _ in range(5)]            # liens regroupés par niveau d'opacité
+            room = C['packets'] - len(self.packets)
+            chance = 0.022 * dt                         # probabilité d'émettre un paquet, par lien et par seconde
+            rnd, sqrt = random.random, math.sqrt
+            for (cx, cy), cell in grid.items():
+                for ox, oy in ((0, 0), (1, 0), (-1, 1), (0, 1), (1, 1)):
+                    other = cell if not (ox or oy) else grid.get((cx + ox, cy + oy))
+                    if not other: continue
+                    for i, a in enumerate(cell):
+                        ax, ay = a[0], a[1]
+                        for b in (cell[i + 1:] if other is cell else other):
+                            dx = ax - b[0]; dy = ay - b[1]; d2 = dx * dx + dy * dy
+                            if d2 < L2:
+                                buckets[min(4, int((1 - sqrt(d2) / L) * 5))].append((ax, ay, b[0], b[1]))
+                                if room > 0 and rnd() < chance: self.packets.append([a, b, 0.0, now]); room -= 1
             cr.set_line_width(C['width'])
+            move, line, stroke = cr.move_to, cr.line_to, cr.stroke
             for bi, segs in enumerate(buckets):
                 if not segs: continue
                 cr.set_source_rgba(*C['line'], min(1.0, (bi + 0.5) / 5 * 0.85 * op))
-                for x1, y1, x2, y2 in segs: cr.move_to(x1, y1); cr.line_to(x2, y2)
-                cr.stroke()
+                # un tracé par lien : Cairo ne balaie alors que la petite zone du segment (mesuré : presque
+                # 2 fois plus rapide qu'un seul tracé groupé couvrant tout l'écran)
+                for x1, y1, x2, y2 in segs: move(x1, y1); line(x2, y2); stroke()
             mx, my = state['mouse']
             cr.set_source_rgba(*C['node'], min(1.0, 0.9 * op))
             hot = []
-            for n in nodes:
+            for n in self.nodes:
                 if (n[0] - mx) ** 2 + (n[1] - my) ** 2 < 150 ** 2: hot.append(n); continue
                 cr.move_to(n[0] + n[4], n[1]); cr.arc(n[0], n[1], n[4], 0, 6.2832)
             cr.fill()
@@ -136,10 +215,101 @@ def daemon():
                 cr.set_source_rgba(*C['hot'], min(1.0, op + 0.35))
                 for n in hot: cr.move_to(n[0] + n[4] + 1.2, n[1]); cr.arc(n[0], n[1], n[4] + 1.2, 0, 6.2832)
                 cr.fill()
-            for a, b, t in self.packets:                 # paquets : halo + cœur
-                x, y = a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t
+
+        def draw(self, _w, cr):
+            # Tout le calcul est ici, pas dans la minuterie : GTK n'appelle « draw » que lorsque Sway affiche
+            # réellement la surface → rien n'est calculé sous un plein écran ou écran éteint.
+            if self.dirty: self.dirty = False; self.render()
+            op = C['opacity']
+            cr.set_operator(cairo.OPERATOR_SOURCE); cr.set_source_surface(self.cache, 0, 0); cr.paint()
+            cr.set_operator(cairo.OPERATOR_OVER)
+            for p in self.packets:                       # paquets : halo + cœur
+                x, y = self.pos(p)
                 cr.set_source_rgba(*C['packet'], 0.18 * min(1, op + 0.3)); cr.arc(x, y, 8, 0, 6.2832); cr.fill()
                 cr.set_source_rgba(*C['packet'], min(1.0, op + 0.4)); cr.arc(x, y, 3, 0, 6.2832); cr.fill()
+            return False
+
+    class Card(Gtk.Window):
+        """Carte « status.json » du portfolio : petite surface à part, redessinée seulement quand son texte change."""
+        CW, CH, PAD, HEAD = 452, 320, 20, 38
+        ACC, CYAN, AMBER, RED, DIM, FG = '#00ff9c', '#00e5ff', '#ffb000', '#ff5370', '#5c6b7a', '#c5d1de'
+
+        def __init__(self, monitor):
+            super().__init__()
+            p = layer(self, monitor, b'livebg-card')
+            ls.gtk_layer_set_anchor(p, RIGHT, 1); ls.gtk_layer_set_anchor(p, BOTTOM, 1)
+            ls.gtk_layer_set_margin(p, RIGHT, C['card_right']); ls.gtk_layer_set_margin(p, BOTTOM, C['card_bottom'])
+            self.words = C['words'] or ['…']
+            self.w, self.i, self.erasing, self.blink = 0, len(self.words[0]), True, True
+            self.font = Pango.FontDescription(f'{FONT} 11')
+            probe = PangoCairo.create_layout(cairo.Context(cairo.ImageSurface(cairo.FORMAT_ARGB32, 8, 8)))
+            probe.set_font_description(self.font); probe.set_spacing(int(7 * Pango.SCALE)); probe.set_markup(self.markup(), -1)
+            self.CH = self.HEAD + 16 + probe.get_pixel_size()[1] + 18      # hauteur ajustée au texte
+            self.set_size_request(self.CW, self.CH)
+            self.connect('draw', self.draw)
+            self.show_all()
+            if len(self.words) > 1: GLib.timeout_add(2400, self.type)
+            GLib.timeout_add(550, self.cursor)
+
+        def type(self):                                  # machine à écrire : mêmes temps que le portfolio
+            word = self.words[self.w]
+            self.i += -1 if self.erasing else 1
+            wait = 35 if self.erasing else 70
+            if not self.erasing and self.i >= len(word): self.erasing, wait = True, 2200
+            elif self.erasing and self.i <= 0: self.erasing, self.w, wait = False, (self.w + 1) % len(self.words), 300
+            self.queue_draw()
+            GLib.timeout_add(wait, self.type)
+            return False
+
+        def cursor(self):
+            self.blink = not self.blink; self.queue_draw(); return True
+
+        def markup(self):
+            e = GLib.markup_escape_text
+            A, K, D, N = self.ACC, self.CYAN, self.DIM, self.AMBER
+            lvl = stats.level
+            pc = self.RED if lvl == 'crit' else N if lvl == 'warn' else A
+            pipe = 'saturated' if lvl == 'crit' else 'degraded' if lvl == 'warn' else 'nominal'
+            cur = f"<span color='{A}'>▌</span>" if self.blink else "<span alpha='1'>▌</span>"
+            k = lambda name: f"<span color='{K}'>\"{name}\"</span>"
+            sv = lambda val, col=A: f"<span color='{col}'>\"{e(val)}\"</span>"
+            return '\n'.join((
+                f"<span color='{A}'>$</span> whoami",
+                f"<span color='{D}'>&gt;</span> {e(self.words[self.w][:self.i])}{cur}",
+                f"<span size='4000'> </span>",
+                f"<span color='{D}'>{{</span>",
+                f"  {k('host')}: {sv(stats.host)},",
+                f"  {k('uptime')}: {sv(stats.uptime)},",
+                f"  {k('cpu')}: <span color='{N}'>{stats.cpu}</span>, {k('mem')}: <span color='{N}'>{stats.mem}</span>,",
+                f"  {k('net')}: {sv(stats.net)},",
+                f"  {k('pipeline')}: {sv(pipe, pc)}",
+                f"<span color='{D}'>}}</span>"))
+
+        def draw(self, _w, cr):
+            W, H, r = self.CW, self.CH, 12
+            cr.set_operator(cairo.OPERATOR_SOURCE); cr.set_source_rgba(0, 0, 0, 0); cr.paint()
+            cr.set_operator(cairo.OPERATOR_OVER)
+            def box():
+                cr.new_sub_path()
+                cr.arc(W - r - .5, r + .5, r, -math.pi / 2, 0); cr.arc(W - r - .5, H - r - .5, r, 0, math.pi / 2)
+                cr.arc(r + .5, H - r - .5, r, math.pi / 2, math.pi); cr.arc(r + .5, r + .5, r, math.pi, 3 * math.pi / 2)
+                cr.close_path()
+            box(); cr.set_source_rgba(*rgb('121821'), 0.78); cr.fill_preserve()
+            cr.save(); cr.clip(); cr.set_source_rgba(*rgb('0b0f14'), 0.45); cr.rectangle(0, 0, W, self.HEAD); cr.fill(); cr.restore()
+            cr.set_line_width(1); cr.set_source_rgba(*rgb('1e2632'), 1)
+            cr.move_to(0, self.HEAD + .5); cr.line_to(W, self.HEAD + .5); cr.stroke()
+            box(); cr.set_source_rgba(*rgb('00ff9c'), 0.22); cr.stroke()
+            for n, col in enumerate((self.RED, self.AMBER, self.ACC)):      # trois pastilles de fenêtre
+                cr.set_source_rgba(*rgb(col), 0.75); cr.arc(self.PAD + n * 17, self.HEAD / 2, 5, 0, 6.2832); cr.fill()
+            lvl = stats.level                                                 # voyant d'état, à droite
+            pc = rgb(self.RED if lvl == 'crit' else self.AMBER if lvl == 'warn' else self.ACC)
+            cr.set_source_rgba(*pc, 0.22); cr.arc(W - self.PAD, self.HEAD / 2, 8, 0, 6.2832); cr.fill()
+            cr.set_source_rgba(*pc, 1); cr.arc(W - self.PAD, self.HEAD / 2, 4, 0, 6.2832); cr.fill()
+            lay = PangoCairo.create_layout(cr); lay.set_font_description(self.font)
+            lay.set_markup(f"<span color='{self.DIM}'>status.json</span>", -1)
+            _, h = lay.get_pixel_size(); cr.move_to(self.PAD + 3 * 17 + 6, (self.HEAD - h) / 2); PangoCairo.show_layout(cr, lay)
+            lay.set_spacing(int(7 * Pango.SCALE)); lay.set_markup(self.markup(), -1)
+            cr.set_source_rgba(*rgb(self.FG), 1); cr.move_to(self.PAD + 2, self.HEAD + 16); PangoCairo.show_layout(cr, lay)
             return False
 
     wins = {}
@@ -147,16 +317,40 @@ def daemon():
     def sync_monitors(*_):
         mons = [disp.get_monitor(i) for i in range(disp.get_n_monitors())]
         for m in mons:
-            if m not in wins: wins[m] = Net(m)
+            if m not in wins:
+                wins[m] = [Net(m)]
+                if C['card'] and (m.is_primary() or m == mons[0]) and not any(len(v) > 1 for v in wins.values()):
+                    wins[m].append(Card(m))
         for m in list(wins):
-            if m not in mons: wins.pop(m).destroy()
+            if m not in mons:
+                for w in wins.pop(m): w.destroy()
     disp.connect('monitor-added', sync_monitors); disp.connect('monitor-removed', sync_monitors)
     sync_monitors()
 
-    def slow():
-        state['batt'] = on_battery()
+    # Une minuterie par image voulue, qui demande seulement un redessin. (Un rappel par image de l'écran
+    # réveillerait Python 240 fois par seconde sur une dalle 240 Hz pour n'en dessiner que 24.)
+    timer, last_net = [0], [0.0]
+    def frame():
+        now = time.monotonic()
+        net_fps = min(C['battery_net_fps'] if state['batt'] else C['net_fps'], C['fps'])
+        net_due = now - last_net[0] >= 1.0 / max(1.0, net_fps) - 0.004
+        if net_due: last_net[0] = now
+        for ws in wins.values(): ws[0].tick(now, net_due)
         return True
-    GLib.timeout_add_seconds(15, slow)
+    def arm():
+        if timer[0]: GLib.source_remove(timer[0])
+        fps = C['battery_fps'] if state['batt'] else C['fps']
+        timer[0] = GLib.timeout_add(max(15, int(1000 / max(1.0, fps))), frame)
+    arm()
+
+    def slow():                                          # toutes les 5 s : statistiques de la carte, secteur / batterie
+        stats.read()
+        for ws in wins.values():
+            for w in ws[1:]: w.queue_draw()
+        batt = on_battery()
+        if batt != state['batt']: state['batt'] = batt; arm()
+        return True
+    GLib.timeout_add_seconds(5, slow)
     GLib.unix_signal_add(GLib.PRIORITY_DEFAULT, signal.SIGTERM, Gtk.main_quit)
     GLib.unix_signal_add(GLib.PRIORITY_DEFAULT, signal.SIGINT, Gtk.main_quit)
     Gtk.main()
@@ -180,4 +374,4 @@ elif a in ('toggle', 'on', 'off'):
     print('fond animé', 'activé' if want else 'coupé')
 elif a == 'status': print(sysd('is-active', UNIT).stdout.strip())
 else:
-    for l in open(os.path.realpath(__file__)).read().split('\n')[2:11]: print(l.strip('# │').rstrip('│ ').rstrip())
+    for l in open(os.path.realpath(__file__)).read().split('\n')[2:13]: print(l.strip('# │').rstrip('│ ').rstrip())

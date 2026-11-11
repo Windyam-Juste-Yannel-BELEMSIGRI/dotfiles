@@ -9,3 +9,11 @@ mtxr.sqltools                     # client SQL
 mtxr.sqltools-driver-pg           # pilote PostgreSQL pour SQLTools
 redhat.vscode-yaml                # compose, règles Sigma, CI
 astro-build.astro-vscode          # portfolio (Astro)
+anthropic.claude-code             # Claude Code (diffs, sélection, /ide)
+mhutchie.git-graph                # graphe de l'historique Git
+timonwong.shellcheck              # lint shell (dotfiles, scripts)
+foxundermoon.shell-format         # formatage shell (shfmt)
+ms-playwright.playwright          # tests e2e du portfolio
+davidanson.vscode-markdownlint    # lint Markdown (README, writeups)
+tamasfe.even-better-toml          # TOML (starship, greetd, pyproject)
+ms-vscode-remote.remote-ssh       # édition sur machines distantes (labs)

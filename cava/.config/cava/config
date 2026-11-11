@@ -27,9 +27,9 @@ channels = stereo
 [color]
 gradient = 1
 gradient_count = 3
-gradient_color_1 = '#2f4a45'
-gradient_color_2 = '#7dd3c0'
-gradient_color_3 = '#8de3d0'
+gradient_color_1 = '#1b3a33'
+gradient_color_2 = '#00ff9c'
+gradient_color_3 = '#00e5ff'
 
 [smoothing]
 noise_reduction = 60

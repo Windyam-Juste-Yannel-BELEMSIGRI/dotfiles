@@ -12,8 +12,8 @@
 \x auto
 \timing on
 -- invite : utilisateur@hôte/base, « * » en transaction, « # » si super-utilisateur
-\set PROMPT1 '%[%033[38;2;125;211;192m%]%n%[%033[38;2;168;168;174m%]@%m%[%033[0m%]/%[%033[38;2;216;166;87m%]%/%[%033[38;2;192;112;112m%]%x%[%033[0m%] %# '
-\set PROMPT2 '%[%033[38;2;168;168;174m%]  …%[%033[0m%] '
+\set PROMPT1 '%[%033[38;2;0;255;156m%]%n%[%033[38;2;125;136;152m%]@%m%[%033[0m%]/%[%033[38;2;255;176;0m%]%/%[%033[38;2;255;83;112m%]%x%[%033[0m%] %# '
+\set PROMPT2 '%[%033[38;2;125;136;152m%]  …%[%033[0m%] '
 -- raccourcis d'exploration : :tables  :sizes  :activity  :locks
 \set tables 'SELECT schemaname, relname, n_live_tup AS lignes FROM pg_stat_user_tables ORDER BY n_live_tup DESC;'
 \set sizes 'SELECT relname, pg_size_pretty(pg_total_relation_size(relid)) AS taille FROM pg_catalog.pg_statio_user_tables ORDER BY pg_total_relation_size(relid) DESC LIMIT 20;'

@@ -15,3 +15,6 @@ alias dps='docker ps --format "table {{.Names}}\t{{.Image}}\t{{.Status}}\t{{.Por
 alias texw='latexmk -xelatex -pvc -interaction=nonstopmode'
 # imv : Debian ne fournit que imv-wayland / imv-x11 (+ lanceur libexec)
 alias imv=/usr/libexec/imv/imv
+# Ouvrir les dossiers de travail dans VS Code
+alias dotfiles='code ~/dotfiles'
+alias github='code ~/Documents/github'

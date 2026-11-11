@@ -13,11 +13,11 @@ STATE = os.path.join(DATA, 'notified.json')
 
 # étiquette → (couleur, icône Nerd Font)
 TAGS = {
-    'soc':   ('#c07070', '󰒃'),
-    'data':  ('#7dd3c0', '󰆼'),
-    'cours': ('#7a9dc0', '󰑴'),
-    'perso': ('#b090c0', '󰋑'),
-    'admin': ('#d8a657', '󰈙'),
+    'soc':   ('#ff5370', '󰒃'),
+    'data':  ('#00ff9c', '󰆼'),
+    'cours': ('#4fc3f7', '󰑴'),
+    'perso': ('#b388ff', '󰋑'),
+    'admin': ('#ffb000', '󰈙'),
 }
 DEFAULT_TAG = 'perso'
 REPEATS = ('none', 'daily', 'weekdays', 'weekly', 'monthly')

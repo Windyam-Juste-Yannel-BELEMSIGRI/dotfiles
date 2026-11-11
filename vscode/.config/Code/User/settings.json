@@ -1,14 +1,30 @@
 {
+  // Couleurs « SOC Matrix » (mêmes surcharges que windows-geek-theme, sans extension tierce)
+  "workbench.colorTheme": "Default Dark Modern",
   "workbench.colorCustomizations": {
-    "focusBorder": "#7dd3c0",
-    "activityBarBadge.background": "#7dd3c0",
-    "activityBarBadge.foreground": "#1c1c1e",
-    "statusBar.background": "#1c1c1e",
-    "statusBar.border": "#7dd3c055",
-    "statusBarItem.remoteBackground": "#7dd3c0",
-    "statusBarItem.remoteForeground": "#1c1c1e",
-    "editorCursor.foreground": "#7dd3c0",
-    "terminal.ansiCyan": "#7dd3c0"
+    "focusBorder": "#00ff9c",
+    "editor.background": "#0b0f14",
+    "sideBar.background": "#080b0f",
+    "activityBar.background": "#080b0f",
+    "activityBar.foreground": "#00ff9c",
+    "activityBarBadge.background": "#00ff9c",
+    "activityBarBadge.foreground": "#0b0f14",
+    "titleBar.activeBackground": "#080b0f",
+    "statusBar.background": "#080b0f",
+    "statusBar.foreground": "#00ff9c",
+    "statusBar.border": "#00ff9c33",
+    "statusBarItem.remoteBackground": "#00ff9c",
+    "statusBarItem.remoteForeground": "#0b0f14",
+    "panel.background": "#0b0f14",
+    "terminal.background": "#0b0f14",
+    "terminal.ansiGreen": "#00ff9c",
+    "terminal.ansiCyan": "#00e5ff",
+    "terminal.ansiYellow": "#ffb000",
+    "terminal.ansiRed": "#ff5370",
+    "terminal.ansiMagenta": "#b388ff",
+    "tab.activeBorderTop": "#00ff9c",
+    "editorCursor.foreground": "#00ff9c",
+    "list.activeSelectionBackground": "#12332b"
   },
   "window.titleBarStyle": "native",
   "window.menuBarVisibility": "toggle",
@@ -44,5 +60,8 @@
 
   // C
   "C_Cpp.default.cStandard": "c17",
-  "C_Cpp.default.compilerPath": "/usr/bin/gcc"
+  "C_Cpp.default.compilerPath": "/usr/bin/gcc",
+  "workbench.editor.autoLockGroups": {
+    "terminalEditor": false
+  }
 }

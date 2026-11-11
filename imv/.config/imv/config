@@ -1,10 +1,10 @@
 # imv — palette glass // SOC
 [options]
-background = 1c1c1e
+background = 0b0f14
 overlay = false
 overlay_font = JetBrains Mono:11
-overlay_text_color = e8e8ec
-overlay_background_color = 2a2a2e
+overlay_text_color = c5d1de
+overlay_background_color = 121821
 overlay_background_alpha = dd
 title_text = imv — $imv_current_file ($imv_current_index/$imv_file_count)
 overlay_text = $imv_current_file  ·  ${imv_width}×${imv_height}  ·  ${imv_scale}%

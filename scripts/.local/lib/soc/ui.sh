@@ -18,15 +18,15 @@ case ":$PATH:" in *:/usr/sbin:*) ;; *) PATH=$PATH:/usr/sbin:/sbin ;; esac
 # ── Couleurs (désactivées si stdout n'est pas un terminal ou NO_COLOR) ──
 if [[ -t 1 && -z "${NO_COLOR:-}" ]]; then
   C_RST=$'\e[0m'; C_BOLD=$'\e[1m'; C_DIM=$'\e[2m'
-  C_ACC=$'\e[38;2;125;211;192m'    # #7dd3c0 sarcelle (accent)
-  C_ACC2=$'\e[38;2;141;227;208m'   # #8de3d0
-  C_FG=$'\e[38;2;232;232;236m'     # #e8e8ec
-  C_MUTED=$'\e[38;2;168;168;174m'  # #a8a8ae
-  C_RED=$'\e[38;2;192;112;112m'    # #c07070
-  C_GRN=$'\e[38;2;143;176;144m'    # #8fb090
-  C_YEL=$'\e[38;2;216;166;87m'     # #d8a657
-  C_BLU=$'\e[38;2;122;157;192m'    # #7a9dc0
-  C_MAG=$'\e[38;2;176;144;192m'    # #b090c0
+  C_ACC=$'\e[38;2;0;255;156m'    # #00ff9c vert « matrix » (accent)
+  C_ACC2=$'\e[38;2;0;229;255m'   # #00e5ff cyan (réseau)
+  C_FG=$'\e[38;2;197;209;222m'     # #c5d1de
+  C_MUTED=$'\e[38;2;125;136;152m'  # #7d8898
+  C_RED=$'\e[38;2;255;83;112m'    # #ff5370
+  C_GRN=$'\e[38;2;0;255;156m'    # #00ff9c
+  C_YEL=$'\e[38;2;255;176;0m'     # #ffb000
+  C_BLU=$'\e[38;2;79;195;247m'    # #4fc3f7
+  C_MAG=$'\e[38;2;179;136;255m'    # #b388ff
 else
   C_RST=; C_BOLD=; C_DIM=; C_ACC=; C_ACC2=; C_FG=; C_MUTED=
   C_RED=; C_GRN=; C_YEL=; C_BLU=; C_MAG=

@@ -6,9 +6,9 @@ PROFILE = 'coursera' if 'coursera' in str(config.configdir) else 'yannel'
 HERE = os.path.expanduser('~/dotfiles/qutebrowser/startpages')
 
 # ── Palette (identique à foot / waybar / sway) ──
-bg, surface, overlay = '#1c1c1e', '#2a2a2e', '#3a3a40'
-fg, muted, accent    = '#e8e8ec', '#a8a8ae', '#7dd3c0'
-red, green, yellow, blue, purple = '#c07070', '#8fb090', '#d8a657', '#7a9dc0', '#b090c0'
+bg, surface, overlay = '#0b0f14', '#121821', '#1e2632'
+fg, muted, accent    = '#c5d1de', '#7d8898', '#00ff9c'
+red, green, yellow, blue, purple = '#ff5370', '#00ff9c', '#ffb000', '#4fc3f7', '#b388ff'
 
 # ── Polices ──
 c.fonts.default_family = 'JetBrainsMono Nerd Font'

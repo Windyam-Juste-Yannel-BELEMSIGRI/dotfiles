@@ -1,9 +1,12 @@
 // ╭────────────────────────────────────────────────────────────────────╮
 // │ waybar "glass // SOC" — Waybar 0.12 (Debian 13)                     │
-// │ Barre 1 (haut)  : espaces, fenêtre, horloges, matériel, réseau.     │
-// │ Barre 2 (bas)   : télémétrie SOC (CPU, RAM, températures, débit,    │
-// │                   connexions, IP, échecs SSH, unités en échec).     │
-// │ Modules custom  : ~/.local/bin/waybar-mod <module>                  │
+// │ Même dessin que la barre Zebar de windows-geek-theme (portfolio).   │
+// │ Barre 1 (haut)  : ~/logo▌, espaces, fenêtre, horloges, débits,      │
+// │                   CPU et RAM avec mini-courbes, matériel.           │
+// │ Barre 2 (bas)   : télémétrie SOC (températures, ventilateurs,       │
+// │                   disque, connexions, IP, échecs SSH, unités).      │
+// │ Modules custom  : ~/.local/bin/waybar-mod <module> (ponctuels)      │
+// │                   ~/.local/bin/waybar-hud <module> (continus)       │
 // │ Rechargement    : systemctl --user reload waybar  (SIGUSR2)         │
 // ╰────────────────────────────────────────────────────────────────────╯
 [
@@ -11,23 +14,24 @@
     "name": "main",
     "layer": "top",
     "position": "top",
-    "height": 34,
-    "margin-top": 8,
-    "margin-left": 12,
-    "margin-right": 12,
-    "spacing": 4,
+    "height": 36,
+    "margin-top": 10,
+    "margin-left": 14,
+    "margin-right": 14,
+    "spacing": 0,
 
     "modules-left": ["custom/logo", "sway/workspaces", "sway/mode", "sway/scratchpad", "sway/window"],
     "modules-center": ["clock", "clock#utc", "custom/agenda"],
     "modules-right": [
-      "custom/rec", "mpris", "wireplumber", "backlight", "network", "custom/vpn",
-      "bluetooth", "power-profiles-daemon", "battery", "idle_inhibitor",
-      "custom/dnd", "tray", "custom/power"
+      "custom/rec", "mpris", "network", "custom/net", "custom/vpn", "custom/cpu", "custom/mem",
+      "wireplumber", "backlight", "bluetooth", "power-profiles-daemon", "battery",
+      "idle_inhibitor", "custom/dnd", "tray", "custom/power"
     ],
 
     "custom/logo": {
-      "format": " ",
-      "tooltip-format": "soc-dashboard (clic)\nsitrep (clic droit)",
+      "exec": "~/.local/bin/waybar-hud logo",
+      "return-type": "json",
+      "restart-interval": 5,
       "on-click": "foot --app-id=soc-dashboard ~/.local/bin/soc-dashboard",
       "on-click-right": "foot --app-id=floating-term --hold ~/.local/bin/sitrep"
     },
@@ -35,8 +39,7 @@
     "sway/workspaces": {
       "disable-scroll": true,
       "all-outputs": false,
-      "format": "{icon}",
-      "format-icons": { "urgent": "!", "focused": "●", "default": "○" },
+      "format": "{name}",
       "persistent-workspaces": { "1": [], "2": [], "3": [], "4": [], "5": [] }
     },
     "sway/mode": { "format": "󰘳 {}" },
@@ -46,28 +49,34 @@
       "format-icons": ["󰖯", "󰖯"],
       "tooltip-format": "{app}: {title}"
     },
-    "sway/window": { "format": "{title}", "max-length": 48, "rewrite": { "(.*) — Mozilla Firefox": "󰈹 $1" } },
+    // processus en cyan précédé de « > », titre atténué (comme la barre Zebar)
+    "sway/window": {
+      "format": "<span color='#5c6b7a'>&gt;</span> <span color='#00e5ff'>{app_id}</span>  <span color='#5c6b7a'>{title}</span>",
+      "max-length": 64,
+      // aucun client focalisé : « > desktop », comme sous Windows
+      "rewrite": { "^<span[^>]*>&gt;</span> <span[^>]*></span>  <span[^>]*></span>$": "<span color='#5c6b7a'>&gt; desktop</span>" }
+    },
 
     "clock": {
       "interval": 1,
-      "format": "󰥔 {:%H:%M:%S}",
-      "format-alt": "󰃭 {:%A %d %B %Y}",
+      "format": "<span color='#00ff9c'>●</span> {:%H:%M:%S  <span color='#5c6b7a'>%a %d %b</span>}",
+      "format-alt": "<span color='#00ff9c'>●</span> {:%A %d %B %Y}",
       "tooltip-format": "<tt><small>{calendar}</small></tt>",
       "calendar": {
         "mode": "month",
         "weeks-pos": "left",
         "format": {
-          "months": "<span color='#7dd3c0'><b>{}</b></span>",
-          "weeks": "<span color='#a8a8ae'>S{}</span>",
-          "weekdays": "<span color='#d8a657'>{}</span>",
-          "today": "<span color='#1c1c1e' background='#7dd3c0'><b>{}</b></span>"
+          "months": "<span color='#00ff9c'><b>{}</b></span>",
+          "weeks": "<span color='#5c6b7a'>S{}</span>",
+          "weekdays": "<span color='#ffb000'>{}</span>",
+          "today": "<span color='#0b0f14' background='#00ff9c'><b>{}</b></span>"
         }
       }
     },
     "clock#utc": {
       "interval": 60,
       "timezone": "Etc/UTC",
-      "format": "UTC {:%H:%M}",
+      "format": "<span color='#5c6b7a'>UTC</span> {:%H:%M}",
       "tooltip-format": "Heure UTC (corrélation des logs / SIEM)\n{:%Y-%m-%dT%H:%M:%SZ}"
     },
 
@@ -121,6 +130,26 @@
       "tooltip-format-ethernet": "{ifname} : {ipaddr}/{cidr}\npasserelle : {gwaddr}\n↓ {bandwidthDownBytes}  ↑ {bandwidthUpBytes}",
       "on-click": "~/.local/bin/wifi-menu",
       "on-click-right": "foot --app-id=floating-term nmtui"
+    },
+    "custom/net": {
+      "exec": "~/.local/bin/waybar-hud net",
+      "return-type": "json",
+      "restart-interval": 5,
+      "on-click": "foot --app-id=floating-term ~/.local/bin/netwatch"
+    },
+    "custom/cpu": {
+      "exec": "~/.local/bin/waybar-hud cpu",
+      "return-type": "json",
+      "restart-interval": 5,
+      "format": "󰍛 {}",
+      "on-click": "foot --app-id=floating-term btop"
+    },
+    "custom/mem": {
+      "exec": "~/.local/bin/waybar-hud mem",
+      "return-type": "json",
+      "restart-interval": 5,
+      "format": "󰘚 {}",
+      "on-click": "foot --app-id=floating-term btop"
     },
     "custom/vpn": {
       "exec": "~/.local/bin/waybar-mod vpn",
@@ -181,35 +210,21 @@
     "layer": "top",
     "position": "bottom",
     "height": 26,
-    "margin-bottom": 6,
-    "margin-left": 12,
-    "margin-right": 12,
-    "spacing": 2,
+    "margin-bottom": 8,
+    "margin-left": 14,
+    "margin-right": 14,
+    "spacing": 0,
 
-    "modules-left": ["custom/host", "cpu", "memory", "temperature", "custom/gpu", "custom/fans", "disk"],
+    "modules-left": ["custom/host", "temperature", "custom/gpu", "custom/fans", "disk"],
     "modules-right": [
-      "network#speed", "custom/conns", "custom/ip-local", "custom/ip-public",
-      "custom/ssh-fails", "systemd-failed-units"
+      "custom/conns", "custom/ip-local", "custom/ip-public", "custom/ssh-fails", "systemd-failed-units"
     ],
 
     "custom/host": {
-      "exec": "printf '◢ %s // SOC' \"$(hostname -s)\"",
+      "exec": "printf \"<span color='#00ff9c'>●</span> SOC // ONLINE  <span color='#5c6b7a'>%s</span>\" \"$(hostname -s)\"",
       "interval": "once",
       "tooltip": false,
       "on-click": "foot --app-id=floating-term ~/.local/bin/sysmon"
-    },
-    "cpu": {
-      "interval": 3,
-      "format": "󰍛 {usage:>3}% ({load:.2f})",
-      "states": { "warning": 70, "critical": 90 },
-      "tooltip": true,
-      "on-click": "foot --app-id=floating-term btop"
-    },
-    "memory": {
-      "interval": 5,
-      "format": "󰘚 {percentage:>3}% {used:>4.1f}G",
-      "tooltip-format": "RAM {used:.1f}/{total:.1f} Gio\nswap {swapUsed:.1f}/{swapTotal:.1f} Gio",
-      "states": { "warning": 75, "critical": 90 }
     },
     "temperature": {
       "hwmon-path-abs": "/sys/devices/platform/coretemp.0/hwmon",
@@ -236,13 +251,6 @@
       "path": "/",
       "format": "󰋊 {percentage_used:>3}%",
       "tooltip-format": "/ : {used} / {total} ({free} libres)"
-    },
-    "network#speed": {
-      "interval": 2,
-      "format": "󰇚 {bandwidthDownBytes:>9} 󰕒 {bandwidthUpBytes:>9}",
-      "format-disconnected": "󰇚 — 󰕒 —",
-      "tooltip-format": "{ifname} : débit sur 2 s",
-      "on-click": "foot --app-id=floating-term ~/.local/bin/netwatch"
     },
     "custom/conns": {
       "exec": "~/.local/bin/waybar-mod conns",

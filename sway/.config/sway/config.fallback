@@ -4,9 +4,9 @@
 # Ne dépend que de sway + foot. Pas de waybar → swaybar intégré.
 set $mod Mod4
 input type:keyboard xkb_layout us
-output * bg #1c1c1e solid_color
+output * bg #0b0f14 solid_color
 default_border pixel 2
-client.focused #7dd3c0 #2a2a2e #e8e8ec #8de3d0 #7dd3c0
+client.focused #00ff9c #121821 #c5d1de #00e5ff #00ff9c
 
 bindsym $mod+Return exec foot
 bindsym $mod+d exec fuzzel
@@ -29,9 +29,9 @@ bar {
     position top
     status_command while date +'%Y-%m-%d %H:%M  [FALLBACK]'; do sleep 30; done
     colors {
-        background #1c1c1e
-        statusline #e8e8ec
-        focused_workspace #7dd3c0 #7dd3c0 #1c1c1e
+        background #0b0f14
+        statusline #c5d1de
+        focused_workspace #00ff9c #00ff9c #0b0f14
     }
 }
 include /etc/sway/config.d/*

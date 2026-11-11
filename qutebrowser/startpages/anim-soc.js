@@ -1,6 +1,6 @@
 // Fond animé « SOC » : radar qui balaie, alertes qui apparaissent, flux de logs. 30 fps, pause si l'onglet est caché.
 (()=>{const cv=document.getElementById('bg'),x=cv.getContext('2d');let W,H,D;
-const AC='125,211,192',RED='192,112,112',YEL='216,166,87';
+const AC='0,255,156',RED='255,83,112',YEL='216,166,87';
 const LOGS=['[ALERT] T1059.001 powershell enc','[INFO ] auth ok user=svc_etl','[WARN ] 4625 x37 src=10.0.4.12','[INFO ] dns q=cdn.example.org','[ALERT] T1110 brute-force ssh','[INFO ] flow 443 est bytes=18k','[WARN ] sigma:proc_creation_susp','[INFO ] tls handshake ok','[ALERT] T1566 phishing url blocked'];
 const lines=[];let blips=[],ang=0,last=0,logT=0;
 function rs(){D=devicePixelRatio||1;W=innerWidth;H=innerHeight;cv.width=W*D;cv.height=H*D;cv.style.width=W+'px';cv.style.height=H+'px';x.setTransform(D,0,0,D,0,0)}

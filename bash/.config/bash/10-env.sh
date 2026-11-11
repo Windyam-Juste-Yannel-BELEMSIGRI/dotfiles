@@ -16,5 +16,5 @@ shopt -s histappend checkwinsize globstar cdspell autocd 2>/dev/null
 # fzf : couleurs du thème
 export FZF_DEFAULT_COMMAND='fdfind --type f --hidden --exclude .git'
 export FZF_DEFAULT_OPTS="--height 40% --layout=reverse --border=rounded \
- --color=bg+:#2a2a2e,bg:-1,fg:#e8e8ec,hl:#7dd3c0,fg+:#e8e8ec,hl+:#8de3d0 \
- --color=info:#a8a8ae,prompt:#7dd3c0,pointer:#7dd3c0,marker:#8fb090,spinner:#7dd3c0,header:#7a9dc0,border:#3a3a40"
+ --color=bg+:#121821,bg:-1,fg:#c5d1de,hl:#00ff9c,fg+:#c5d1de,hl+:#00e5ff \
+ --color=info:#7d8898,prompt:#00ff9c,pointer:#00ff9c,marker:#00ff9c,spinner:#00ff9c,header:#4fc3f7,border:#1e2632"

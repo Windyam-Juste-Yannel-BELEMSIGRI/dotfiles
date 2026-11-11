@@ -1,35 +1,35 @@
 # ── swaylock 1.8 (Debian, SANS swaylock-effects) ─────────────────────────
 # Les effets (flou/glitch) sont précalculés par ~/.local/bin/lock-glitch
 # qui passe l'image via -i. Ici : couleurs de l'indicateur (thème d'origine
-# lock.sh : anneau sarcelle #7dd3c0).
+# lock.sh : anneau vert #00ff9c).
 ignore-empty-password
 show-failed-attempts
 indicator-caps-lock
 font=JetBrainsMono Nerd Font
 indicator-radius=100
 indicator-thickness=8
-color=1c1c1e
-inside-color=1c1c1ecc
-inside-clear-color=1c1c1ecc
-inside-ver-color=2a2a2ecc
-inside-wrong-color=2a1c1ecc
-ring-color=7dd3c0
-ring-clear-color=8de3d0
-ring-ver-color=7a9dc0
-ring-wrong-color=c07070
-key-hl-color=e8e8ec
-bs-hl-color=c07070
-caps-lock-key-hl-color=d8a657
-caps-lock-bs-hl-color=c07070
+color=0b0f14
+inside-color=0b0f14cc
+inside-clear-color=0b0f14cc
+inside-ver-color=121821cc
+inside-wrong-color=2a0f16cc
+ring-color=00ff9c
+ring-clear-color=00e5ff
+ring-ver-color=4fc3f7
+ring-wrong-color=ff5370
+key-hl-color=c5d1de
+bs-hl-color=ff5370
+caps-lock-key-hl-color=ffb000
+caps-lock-bs-hl-color=ff5370
 line-color=00000000
 line-clear-color=00000000
 line-ver-color=00000000
 line-wrong-color=00000000
 separator-color=00000000
-text-color=e8e8ec
-text-clear-color=8de3d0
-text-ver-color=7a9dc0
-text-wrong-color=c07070
-text-caps-lock-color=d8a657
+text-color=c5d1de
+text-clear-color=00e5ff
+text-ver-color=4fc3f7
+text-wrong-color=ff5370
+text-caps-lock-color=ffb000
 layout-bg-color=00000000
-layout-text-color=a8a8ae
+layout-text-color=7d8898

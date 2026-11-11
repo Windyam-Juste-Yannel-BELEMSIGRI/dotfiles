@@ -1,6 +1,6 @@
 // Fond animé « Data » : paquets de données qui circulent dans un pipeline. 30 fps, pause si l'onglet est caché.
 (()=>{const cv=document.getElementById('bg'),x=cv.getContext('2d');let W,H,D,last=0;
-const AC='125,211,192';
+const AC='0,255,156';
 const N=[[300,300,'extract'],[620,200,'clean'],[620,520,'enrich'],[960,360,'join'],[1280,240,'load'],[1280,560,'index'],[1600,400,'serve'],[960,760,'archive'],[1320,860,'report']];
 const E=[[0,1],[0,2],[1,3],[2,3],[3,4],[3,5],[4,6],[5,6],[3,7],[7,8],[5,8]];
 const P=[];for(let i=0;i<34;i++)P.push({e:i%E.length,t:Math.random(),v:.12+Math.random()*.18});
@@ -19,5 +19,5 @@ function frame(t){requestAnimationFrame(frame);if(document.hidden||t-last<33)ret
  x.font='15px "JetBrainsMono Nerd Font",monospace';x.textAlign='center';
  N.forEach((n,i)=>{const[nx,ny,s]=pt(i);pulse[i]=Math.max(0,pulse[i]-dt*1.6);const w=124*s,h=48*s;
   x.fillStyle='rgba(42,42,46,.92)';x.strokeStyle=`rgba(${AC},${.55+pulse[i]*.45})`;x.lineWidth=1.4+pulse[i]*1.8;x.shadowColor=`rgba(${AC},${pulse[i]*.8})`;x.shadowBlur=pulse[i]*18;
-  x.beginPath();x.roundRect(nx-w/2,ny-h/2,w,h,8);x.fill();x.stroke();x.shadowBlur=0;x.fillStyle='#e8e8ec';x.fillText(n[2],nx,ny+5)})}
+  x.beginPath();x.roundRect(nx-w/2,ny-h/2,w,h,8);x.fill();x.stroke();x.shadowBlur=0;x.fillStyle='#c5d1de';x.fillText(n[2],nx,ny+5)})}
 requestAnimationFrame(frame)})();

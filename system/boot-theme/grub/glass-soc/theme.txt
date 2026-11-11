@@ -1,12 +1,12 @@
 # GRUB — thème « glass // SOC » (palette foot/sway)
-# bg #1c1c1e · surface #2a2a2e · overlay #3a3a40 · texte #e8e8ec · atténué #a8a8ae · accent #7dd3c0
+# bg #0b0f14 · surface #121821 · overlay #1e2632 · texte #c5d1de · atténué #7d8898 · accent #00ff9c
 # Polices .pf2 générées depuis JetBrains Mono par system/phase9-boot-theme-root.sh
 # (le nom GRUB d'une police = « famille style taille »).
 # Composition centrée : titre 26 %, menu 32→68 % × 37→61 %, compte à rebours 64 %.
 # GRUB n'a pas d'option pour centrer le texte DANS une entrée : le bloc est centré, le texte aligné à gauche dedans.
 
 title-text: ""
-desktop-color: "#1c1c1e"
+desktop-color: "#0b0f14"
 terminal-font: "JetBrains Mono Regular 24"
 terminal-left: "10%"
 terminal-top: "10%"
@@ -14,8 +14,8 @@ terminal-width: "80%"
 terminal-height: "80%"
 terminal-border: "0"
 message-font: "JetBrains Mono Regular 24"
-message-color: "#e8e8ec"
-message-bg-color: "#1c1c1e"
+message-color: "#c5d1de"
+message-bg-color: "#0b0f14"
 
 + label {
     top = 26%
@@ -24,7 +24,7 @@ message-bg-color: "#1c1c1e"
     align = "center"
     text = "glass // SOC"
     font = "JetBrains Mono Bold 48"
-    color = "#7dd3c0"
+    color = "#00ff9c"
 }
 
 + label {
@@ -34,7 +34,7 @@ message-bg-color: "#1c1c1e"
     align = "center"
     text = "sélection du système"
     font = "JetBrains Mono Regular 24"
-    color = "#a8a8ae"
+    color = "#7d8898"
 }
 
 + boot_menu {
@@ -44,9 +44,9 @@ message-bg-color: "#1c1c1e"
     height = 24%
     menu_pixmap_style = "menu_*.png"
     item_font = "JetBrains Mono Regular 32"
-    item_color = "#a8a8ae"
+    item_color = "#7d8898"
     selected_item_font = "JetBrains Mono Bold 32"
-    selected_item_color = "#7dd3c0"
+    selected_item_color = "#00ff9c"
     selected_item_pixmap_style = "sel_*.png"
     item_height = 72
     item_padding = 28
@@ -63,9 +63,9 @@ message-bg-color: "#1c1c1e"
     width = 36%
     top = 64%
     height = 6
-    bg_color = "#2a2a2e"
-    fg_color = "#7dd3c0"
-    border_color = "#2a2a2e"
+    bg_color = "#121821"
+    fg_color = "#00ff9c"
+    border_color = "#121821"
     text = ""
 }
 
@@ -77,7 +77,7 @@ message-bg-color: "#1c1c1e"
     align = "center"
     text = "démarrage automatique dans %d s"
     font = "JetBrains Mono Regular 24"
-    color = "#a8a8ae"
+    color = "#7d8898"
 }
 
 + label {
@@ -87,5 +87,5 @@ message-bg-color: "#1c1c1e"
     align = "center"
     text = "↑ ↓ choisir  ·  Entrée démarrer  ·  e éditer  ·  c console"
     font = "JetBrains Mono Regular 24"
-    color = "#4a4a50"
+    color = "#4a5a6a"
 }

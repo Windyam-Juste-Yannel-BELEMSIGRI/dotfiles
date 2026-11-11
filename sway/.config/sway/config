@@ -1,6 +1,6 @@
 # ╭──────────────────────────────────────────────────────────────────────╮
 # │  ~/.config/sway/config — "glass // SOC" (Sway 1.10, Debian 13)       │
-# │  Évolution sombre du thème "verre dépoli" des dotfiles d'origine.     │
+# │  Même identité que le portfolio et windows-geek-theme (SOC Matrix).  │
 # │  Les blocs thématiques sont dans config.d/*.conf (ordre alphabétique) │
 # │  Secours : sway -c ~/.config/sway/config.fallback                     │
 # ╰──────────────────────────────────────────────────────────────────────╯
@@ -15,16 +15,19 @@ set $term  foot
 set $menu  fuzzel
 set $bin   ~/.local/bin
 
-### Palette (identique à waybar/colors.css, foot, fuzzel, mako) -----------
-set $bg        #1c1c1e
-set $surface   #2a2a2e
-set $overlay   #3a3a40
-set $fg        #e8e8ec
-set $muted     #a8a8ae
-set $accent    #7dd3c0
-set $accent2   #8de3d0
-set $red       #c07070
-set $yellow    #d8a657
+### Palette « SOC Matrix » (celle du portfolio et de windows-geek-theme ;
+### identique dans waybar, foot, fuzzel, mako, GTK…) -------------------------
+set $bg        #0b0f14
+set $surface   #121821
+set $overlay   #1e2632
+set $fg        #c5d1de
+set $muted     #7d8898
+set $dim       #5c6b7a
+set $accent    #00ff9c
+set $accent2   #00e5ff
+set $edge      #1b3a33
+set $red       #ff5370
+set $yellow    #ffb000
 
 # Intégration systemd (DISPLAY, WAYLAND_DISPLAY, SWAYSOCK → services user)
 include /etc/sway/config.d/*

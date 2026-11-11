@@ -1,0 +1,124 @@
+#!/usr/bin/env bash
+# ╭──────────────────────────────────────────────────────────────────────╮
+# │ waybar-hud — modules continus de la barre (style portfolio / Zebar)  │
+# │ Usage : waybar-hud <logo|cpu|mem|net>                                │
+# │   logo   « ~/nom▌ » avec curseur clignotant (comme le portfolio)     │
+# │   cpu    mini-courbe (sparkline) + pourcentage                       │
+# │   mem    mini-courbe (sparkline) + pourcentage                       │
+# │   net    débits ↓ / ↑ de l'interface de la route par défaut          │
+# │ Nom du logo : ~/.config/soc/logo (une ligne), sinon $USER.           │
+# │ Chaque module est une seule boucle bash : lecture de /proc par les   │
+# │ commandes internes, attente par « read -t » → aucun processus créé   │
+# │ après le démarrage, coût CPU non mesurable.                          │
+# ╰──────────────────────────────────────────────────────────────────────╯
+set -u
+usage() { sed -n '3,12p' "$0" | sed 's/^# │ \{0,1\}//; s/ *│$//'; }
+
+ACC='#00ff9c' CYAN='#00e5ff' AMBER='#ffb000' RED='#ff5370' PURPLE='#b388ff' DIM='#5c6b7a'
+HISTORY=10                       # points de la mini-courbe
+BLOCKS=(▁ ▂ ▃ ▄ ▅ ▆ ▇ █)
+
+# Attente sans créer de processus : lecture avec délai sur un tube qui ne reçoit jamais rien.
+exec 9<> <(:)
+nap() { read -rt "$1" -u 9 _ || true; }
+
+# emit TEXTE [CLASSE] [INFOBULLE] : une ligne JSON pour waybar (TEXTE = balisage Pango)
+emit() { printf '{"text":"%s","class":"%s","tooltip":"%s"}\n' "$1" "${2:-}" "${3:-}"; }
+
+# level PCT : classe selon les seuils du thème (ambre > 80 %, rouge > 90 %)
+level() { if (( $1 > 90 )); then echo critical; elif (( $1 > 80 )); then echo warning; else echo normal; fi; }
+
+# spark CLASSE VALEURS... : mini-courbe en blocs, colorée selon le niveau
+spark() {
+  local cls=$1 col=$ACC out='' v; shift
+  [[ $cls == warning ]] && col=$AMBER
+  [[ $cls == critical ]] && col=$RED
+  for v in "$@"; do out+=${BLOCKS[v * 7 / 100]}; done
+  printf "<span color='%s'>%s</span>" "$col" "$out"
+}
+
+# rate OCTETS_PAR_SECONDE : 0B, 12k, 3.4M (largeur fixe 4)
+rate() {
+  local b=$1
+  if (( b >= 1000000 )); then printf '%d.%dM' $((b / 1000000)) $((b % 1000000 / 100000))
+  elif (( b >= 1000 )); then printf '%dk' $((b / 1000))
+  else printf '%dB' "$b"; fi
+}
+
+mod_logo() {
+  local name=${USER//_/ } f=${XDG_CONFIG_HOME:-$HOME/.config}/soc/logo
+  [[ -r $f ]] && read -r name < "$f"
+  local on="<span color='$ACC'>~/</span>$name<span color='$ACC'>▌</span>"
+  local off="<span color='$ACC'>~/</span>$name<span alpha='1'>▌</span>"
+  local tip='soc-dashboard (clic)\nsitrep (clic droit)'
+  while :; do
+    emit "$on" '' "$tip"; nap 0.55
+    emit "$off" '' "$tip"; nap 0.55
+  done
+}
+
+mod_cpu() {
+  local hist=() pt=0 pi=0 u n s i w q sq st t idle pct cls l1 l5 l15 k
+  for (( k = 0; k < HISTORY; k++ )); do hist+=(0); done
+  while :; do
+    read -r _ u n s i w q sq st _ < /proc/stat
+    t=$((u + n + s + i + w + q + sq + st)); idle=$((i + w))
+    pct=0; (( pt && t > pt )) && pct=$(( 100 * ((t - pt) - (idle - pi)) / (t - pt) ))
+    pt=$t; pi=$idle
+    read -r l1 l5 l15 _ < /proc/loadavg
+    hist=("${hist[@]:1}" "$pct"); cls=$(level "$pct")
+    emit "$(spark "$cls" "${hist[@]}") $(printf '%2d' "$pct")%" "$cls" "CPU : $pct %\ncharge : $l1 $l5 $l15\nclic : btop"
+    nap 2
+  done
+}
+
+mod_mem() {
+  local hist=() key val total avail stotal sfree pct cls k
+  for (( k = 0; k < HISTORY; k++ )); do hist+=(0); done
+  while :; do
+    total=1 avail=0 stotal=0 sfree=0
+    while read -r key val _; do
+      case $key in
+        MemTotal:) total=$val ;; MemAvailable:) avail=$val ;;
+        SwapTotal:) stotal=$val ;; SwapFree:) sfree=$val; break ;;
+      esac
+    done < /proc/meminfo
+    pct=$(( 100 * (total - avail) / total ))
+    hist=("${hist[@]:1}" "$pct"); cls=$(level "$pct")
+    emit "$(spark "$cls" "${hist[@]}") $(printf '%2d' "$pct")%" "$cls" \
+      "RAM : $(( (total - avail) / 1024 )) / $(( total / 1024 )) Mio\nswap : $(( (stotal - sfree) / 1024 )) / $(( stotal / 1024 )) Mio"
+    nap 4
+  done
+}
+
+mod_net() {
+  local dev prx=0 ptx=0 rx tx ifc dest line step=2 down up first=1
+  while :; do
+    dev=''
+    while read -r ifc dest _; do [[ $dest == 00000000 ]] && { dev=$ifc; break; }; done < /proc/net/route
+    if [[ -z $dev ]]; then
+      emit "<span color='$DIM'>↓ --  ↑ --</span>" offline 'hors ligne'; first=1; nap "$step"; continue
+    fi
+    rx=0 tx=0
+    while read -r line; do
+      [[ $line == "$dev:"* ]] || continue
+      # shellcheck disable=SC2086
+      set -- ${line#*:}; rx=$1; tx=$9; break
+    done < /proc/net/dev
+    if (( first )); then down=0; up=0; first=0; else down=$(( (rx - prx) / step )); up=$(( (tx - ptx) / step )); fi
+    (( down < 0 )) && down=0; (( up < 0 )) && up=0
+    prx=$rx; ptx=$tx
+    emit "<span color='$CYAN'>↓</span>$(printf '%5s' "$(rate "$down")") <span color='$PURPLE'>↑</span>$(printf '%5s' "$(rate "$up")")" \
+      online "$dev : débit par seconde\nclic : netwatch"
+    nap "$step"
+  done
+}
+
+case ${1:-} in
+  logo) mod_logo ;;
+  cpu) mod_cpu ;;
+  mem) mod_mem ;;
+  net) mod_net ;;
+  -h|--help|'') usage ;;
+  *) echo "module inconnu : $1" >&2; usage >&2; exit 1 ;;
+esac
